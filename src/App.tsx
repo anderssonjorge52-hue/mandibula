@@ -707,12 +707,12 @@ export default function App() {
       };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 relative overflow-x-hidden">
       {/* Background Decorative Gradients */}
       {view === 'landing' && (
         <>
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-100/50 rounded-full blur-[120px] -z-10" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-50/50 rounded-full blur-[120px] -z-10" />
+          <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-100/50 rounded-full blur-[120px] -z-10" />
+          <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-50/50 rounded-full blur-[120px] -z-10" />
         </>
       )}
 
@@ -785,7 +785,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="max-w-md mx-auto px-6 pt-8">
+      <main className="max-w-md mx-auto px-6 pt-8 pb-12">
         <AnimatePresence mode="wait">
           {view === 'landing' && (
             <LandingView 
