@@ -22,9 +22,14 @@ import {
   RotateCw,
   Pause,
   RefreshCw,
-  History
+  History,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
+import { auth, db, signInWithGoogle, logout, handleFirestoreError } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 // --- Types ---
 type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history';
@@ -51,6 +56,32 @@ const ProgressBar = ({ progress }: { progress: number }) => (
       transition={{ duration: 0.8, ease: "easeOut" }}
     />
   </div>
+);
+
+const LoginView = ({ onLogin }: { onLogin: () => void }) => (
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="min-h-screen flex flex-col items-center justify-center p-6 text-center"
+  >
+    <div className="w-20 h-20 bg-indigo-600 text-white rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-indigo-200">
+      <Activity size={40} />
+    </div>
+    <h1 className="text-3xl font-bold text-slate-900 mb-3">Mandíbula Leve</h1>
+    <p className="text-slate-600 mb-10 max-w-xs">
+      Sincronize seu progresso e acesse seus exercícios de qualquer lugar.
+    </p>
+    <button 
+      onClick={onLogin}
+      className="w-full max-w-xs bg-white border border-slate-200 text-slate-700 py-4 rounded-2xl font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
+    >
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/pjax/google.png" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
+      Entrar com Google
+    </button>
+    <p className="mt-8 text-xs text-slate-400">
+      Ao entrar, você concorda com nossos termos de uso.
+    </p>
+  </motion.div>
 );
 
 // --- Sub-Components ---
@@ -728,10 +759,19 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
 );
 
 // --- Error Boundary ---
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
     super(props);
-    this.state = { hasError: false, error: null };
+    (this as any).state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error) {
@@ -743,7 +783,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 
   render() {
-    if (this.state.hasError) {
+    const state = (this as any).state;
+    const props = (this as any).props;
+    if (state.hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
           <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
@@ -770,22 +812,24 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
               Resetar Dados (Limpar Erro)
             </button>
           </div>
-          {this.state.error && (
+          {state.error && (
             <pre className="mt-8 p-4 bg-slate-100 rounded-lg text-[10px] text-slate-400 text-left overflow-auto max-w-full">
-              {this.state.error.toString()}
+              {state.error.toString()}
             </pre>
           )}
         </div>
       );
     }
 
-    return this.props.children;
+    return props.children;
   }
 }
 
 export default function App() {
   console.log('App rendering...');
   // --- State ---
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [view, setView] = useState<View>('landing');
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
@@ -810,11 +854,27 @@ export default function App() {
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  const handleReset = () => {
+  const syncProgressToFirestore = async (newProgress: Progress) => {
+    if (!auth.currentUser) return;
+    try {
+      const userDoc = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(userDoc, {
+        ...newProgress,
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      handleFirestoreError(e, 'write', `users/${auth.currentUser.uid}`);
+    }
+  };
+
+  const handleReset = async () => {
     if (confirm('Deseja realmente resetar todo o seu progresso?')) {
       const initialProgress = { completedExercises: [], completionHistory: [], currentDay: 1 };
       setProgress(initialProgress);
       localStorage.setItem('mandibula-progress', JSON.stringify(initialProgress));
+      await syncProgressToFirestore(initialProgress);
       setView('landing');
       setIsMenuOpen(false);
       window.scrollTo(0, 0);
@@ -823,12 +883,53 @@ export default function App() {
 
   // --- Effects ---
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const userDoc = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDoc, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Progress;
+        setProgress(prev => {
+          // Only update if remote is different to avoid loops
+          if (JSON.stringify(prev) !== JSON.stringify({
+            completedExercises: data.completedExercises,
+            completionHistory: data.completionHistory,
+            currentDay: data.currentDay
+          })) {
+            return {
+              completedExercises: data.completedExercises || [],
+              completionHistory: data.completionHistory || [],
+              currentDay: data.currentDay || 1
+            };
+          }
+          return prev;
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, 'get', `users/${user.uid}`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
     try {
       localStorage.setItem('mandibula-progress', JSON.stringify(progress));
+      if (user) {
+        syncProgressToFirestore(progress);
+      }
     } catch (e) {
-      console.error('Error saving progress to localStorage:', e);
+      console.error('Error saving progress:', e);
     }
-  }, [progress]);
+  }, [progress, user]);
 
   // --- Helpers ---
   const currentDayData = useMemo(() => {
@@ -915,6 +1016,27 @@ export default function App() {
         window.scrollTo(0, 0);
       };
 
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        >
+          <RefreshCw className="text-indigo-600 w-8 h-8" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ErrorBoundary>
+        <LoginView onLogin={signInWithGoogle} />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 relative overflow-x-hidden">
@@ -987,6 +1109,15 @@ export default function App() {
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
                   <RotateCw size={20} /> Resetar Progresso
+                </button>
+                <button 
+                  onClick={() => {
+                    logout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left flex items-center gap-4 text-slate-600 font-medium"
+                >
+                  <LogOut size={20} /> Sair da Conta
                 </button>
               </div>
 

@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required) - The user's unique identifier.
+    //   - email: string (required, email format) - The user's email.
+    //   - completedExercises: list (required) - IDs of completed exercises.
+    //   - completionHistory: list (required) - History of exercise completions.
+    //   - currentDay: number (required) - The current day in the program.
+    //   - updatedAt: timestamp (optional) - Last update time.
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "anderssonjorge52@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile(data) {
+      return hasRequiredFields(data, ['uid', 'email', 'completedExercises', 'completionHistory', 'currentDay']) &&
+             hasOnlyAllowedFields(data, ['uid', 'email', 'completedExercises', 'completionHistory', 'currentDay', 'updatedAt', 'role']) &&
+             data.uid is string &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.completedExercises is list &&
+             data.completionHistory is list &&
+             data.currentDay is int &&
+             data.currentDay >= 1;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      // Users can only read their own profile
+      allow read: if isOwner(uid) || isAdmin();
+      
+      // Users can create their own profile, but cannot set their own role to admin
+      allow create: if isOwner(uid) && 
+                      isValidUserProfile(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role != 'admin');
+      
+      // Users can update their own profile, but cannot change their role
+      allow update: if isOwner(uid) && 
+                      isValidUserProfile(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+      
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
