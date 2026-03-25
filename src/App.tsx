@@ -58,7 +58,7 @@ const ProgressBar = ({ progress }: { progress: number }) => (
   </div>
 );
 
-const LoginView = ({ onLogin }: { onLogin: () => void }) => (
+const LoginView = ({ onLogin, onGuest, isLoading, error }: { onLogin: () => void; onGuest: () => void; isLoading: boolean; error: string | null }) => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.95 }}
     animate={{ opacity: 1, scale: 1 }}
@@ -71,15 +71,46 @@ const LoginView = ({ onLogin }: { onLogin: () => void }) => (
     <p className="text-slate-600 mb-10 max-w-xs">
       Sincronize seu progresso e acesse seus exercícios de qualquer lugar.
     </p>
-    <button 
-      onClick={onLogin}
-      className="w-full max-w-xs bg-white border border-slate-200 text-slate-700 py-4 rounded-2xl font-bold shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
-    >
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/pjax/google.png" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
-      Entrar com Google
-    </button>
-    <p className="mt-8 text-xs text-slate-400">
-      Ao entrar, você concorda com nossos termos de uso.
+    
+    {error && (
+      <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-2xl text-sm border border-rose-100 flex items-center gap-3 max-w-xs">
+        <Info size={18} className="flex-shrink-0" />
+        <p className="text-left">{error}</p>
+      </div>
+    )}
+
+    <div className="flex flex-col gap-3 w-full max-w-xs">
+      <button 
+        onClick={onLogin}
+        disabled={isLoading}
+        className={`w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center justify-center gap-3 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+      >
+        {isLoading ? (
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          >
+            <RefreshCw size={20} />
+          </motion.div>
+        ) : (
+          <>
+            <LogIn size={20} />
+            Entrar com Google
+          </>
+        )}
+      </button>
+
+      <button 
+        onClick={onGuest}
+        disabled={isLoading}
+        className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-all"
+      >
+        Continuar sem conta
+      </button>
+    </div>
+    
+    <p className="mt-8 text-[10px] text-slate-400 max-w-[200px] leading-relaxed">
+      Ao entrar, seus dados serão salvos na nuvem. No modo visitante, os dados ficam apenas neste navegador.
     </p>
   </motion.div>
 );
@@ -829,7 +860,10 @@ export default function App() {
   console.log('App rendering...');
   // --- State ---
   const [user, setUser] = useState<User | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [view, setView] = useState<View>('landing');
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
@@ -1016,6 +1050,25 @@ export default function App() {
         window.scrollTo(0, 0);
       };
 
+  const handleLogin = async () => {
+    setIsLoginLoading(true);
+    setLoginError(null);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      console.error('Login error:', e);
+      if (e.code === 'auth/popup-blocked') {
+        setLoginError('O popup de login foi bloqueado. Por favor, permita popups para este site.');
+      } else if (e.code === 'auth/cancelled-popup-request') {
+        // User closed the popup, no need to show error
+      } else {
+        setLoginError('Ocorreu um erro ao tentar entrar. Tente novamente.');
+      }
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
+
   if (!isAuthReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1029,10 +1082,15 @@ export default function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return (
       <ErrorBoundary>
-        <LoginView onLogin={signInWithGoogle} />
+        <LoginView 
+          onLogin={handleLogin} 
+          onGuest={() => setIsGuest(true)}
+          isLoading={isLoginLoading} 
+          error={loginError} 
+        />
       </ErrorBoundary>
     );
   }
@@ -1113,11 +1171,20 @@ export default function App() {
                 <button 
                   onClick={() => {
                     logout();
+                    setIsGuest(false);
                     setIsMenuOpen(false);
                   }}
                   className="w-full text-left flex items-center gap-4 text-slate-600 font-medium"
                 >
-                  <LogOut size={20} /> Sair da Conta
+                  {user ? (
+                    <>
+                      <LogOut size={20} /> Sair da Conta
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={20} /> Entrar com Conta
+                    </>
+                  )}
                 </button>
               </div>
 
