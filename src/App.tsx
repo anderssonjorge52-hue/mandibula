@@ -21,15 +21,22 @@ import {
   Activity,
   RotateCw,
   Pause,
-  RefreshCw
+  RefreshCw,
+  History
 } from 'lucide-react';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
 
 // --- Types ---
-type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete';
+type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history';
+
+interface CompletionRecord {
+  exerciseId: string;
+  completedAt: string; // ISO string
+}
 
 interface Progress {
   completedExercises: string[]; // IDs of completed exercises
+  completionHistory: CompletionRecord[];
   currentDay: number;
 }
 
@@ -55,6 +62,7 @@ interface DashboardProps {
   getDayProgress: (dayId: number) => number;
   isDayComplete: (dayId: number) => boolean;
   startDay: (day: Day) => void;
+  setView: (v: View) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -63,7 +71,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   currentDayData, 
   getDayProgress, 
   isDayComplete, 
-  startDay 
+  startDay,
+  setView
 }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
@@ -72,7 +81,16 @@ const Dashboard: React.FC<DashboardProps> = ({
     className="space-y-8 pb-12"
   >
     {/* Header Section */}
-    <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+    <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-4">
+        <button 
+          onClick={() => setView('history')}
+          className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-indigo-600 transition-colors"
+          title="Ver Histórico"
+        >
+          <History size={20} />
+        </button>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-sm font-semibold text-indigo-600 uppercase tracking-wider mb-1">Bem-vindo de volta</h2>
@@ -501,6 +519,108 @@ const DayCompleteView: React.FC<DayCompleteViewProps> = ({
   </motion.div>
 );
 
+const HistoryView: React.FC<{ progress: Progress; setView: (v: View) => void }> = ({ progress, setView }) => {
+  // Group history by day
+  const historyByDay = useMemo(() => {
+    const groups: { [key: string]: { day: Day; exercises: { ex: Exercise; completedAt: string }[] } } = {};
+    
+    progress.completionHistory.forEach(record => {
+      // Find which day this exercise belongs to
+      let foundDay: Day | undefined;
+      let foundEx: Exercise | undefined;
+      
+      for (const day of PROGRAM_DATA) {
+        const ex = day.exercises.find(e => e.id === record.exerciseId);
+        if (ex) {
+          foundDay = day;
+          foundEx = ex;
+          break;
+        }
+      }
+      
+      if (foundDay && foundEx) {
+        if (!groups[foundDay.id]) {
+          groups[foundDay.id] = { day: foundDay, exercises: [] };
+        }
+        groups[foundDay.id].exercises.push({ ex: foundEx, completedAt: record.completedAt });
+      }
+    });
+    
+    return Object.values(groups).sort((a, b) => a.day.id - b.day.id);
+  }, [progress.completionHistory]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 pb-12"
+    >
+      <button 
+        onClick={() => setView('dashboard')}
+        className="flex items-center gap-2 text-slate-500 font-medium active:translate-x-[-4px] transition-transform"
+      >
+        <ChevronLeft size={20} />
+        Voltar ao Dashboard
+      </button>
+
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+          <History size={24} />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Histórico</h1>
+      </div>
+
+      {historyByDay.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Activity size={32} />
+          </div>
+          <p className="text-slate-500 font-medium">Nenhum exercício concluído ainda.</p>
+          <button 
+            onClick={() => setView('dashboard')}
+            className="mt-6 text-indigo-600 font-bold text-sm uppercase tracking-widest"
+          >
+            Começar Agora
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {historyByDay.map(({ day, exercises }) => (
+            <div key={day.id} className="space-y-3">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dia {day.id}: {day.title}</h3>
+                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                  {exercises.length} concluídos
+                </span>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                {exercises.map(({ ex, completedAt }, idx) => (
+                  <div 
+                    key={`${ex.id}-${idx}`}
+                    className={`p-4 flex items-center gap-4 ${idx !== exercises.length - 1 ? 'border-b border-slate-50' : ''}`}
+                  >
+                    <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <ex.icon size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-sm text-slate-800 truncate">{ex.name}</h4>
+                      <p className="text-[10px] text-slate-400">
+                        {new Date(completedAt).toLocaleDateString('pt-BR')} às {new Date(completedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <CheckCircle2 className="text-emerald-500" size={18} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 interface LandingViewProps {
   onStart: () => void;
   onReset: () => void;
@@ -619,19 +739,22 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.completedExercises)) {
-          return parsed;
+          return {
+            ...parsed,
+            completionHistory: parsed.completionHistory || []
+          };
         }
       }
     } catch (e) {
       console.error('Error loading progress:', e);
     }
-    return { completedExercises: [], currentDay: 1 };
+    return { completedExercises: [], completionHistory: [], currentDay: 1 };
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const handleReset = () => {
     if (confirm('Deseja realmente resetar todo o seu progresso?')) {
-      const initialProgress = { completedExercises: [], currentDay: 1 };
+      const initialProgress = { completedExercises: [], completionHistory: [], currentDay: 1 };
       setProgress(initialProgress);
       localStorage.setItem('mandibula-progress', JSON.stringify(initialProgress));
       setView('landing');
@@ -686,7 +809,19 @@ export default function App() {
             ? prev.completedExercises.filter(id => id !== exerciseId)
             : [...prev.completedExercises, exerciseId];
           
-          return { ...prev, completedExercises: newCompleted };
+          let newHistory = [...(prev.completionHistory || [])];
+          if (!isCompleted) {
+            newHistory.push({
+              exerciseId,
+              completedAt: new Date().toISOString()
+            });
+          } else {
+            // Optional: remove from history if unchecked? 
+            // Usually history should be immutable records, but for this app simplicity:
+            newHistory = newHistory.filter(h => h.exerciseId !== exerciseId);
+          }
+
+          return { ...prev, completedExercises: newCompleted, completionHistory: newHistory };
         });
       };
     
@@ -779,6 +914,12 @@ export default function App() {
                   <Calendar size={20} /> Dashboard
                 </button>
                 <button 
+                  onClick={() => { setView('history'); setIsMenuOpen(false); }}
+                  className="w-full text-left flex items-center gap-4 text-slate-600 font-medium hover:text-indigo-600"
+                >
+                  <History size={20} /> Histórico
+                </button>
+                <button 
                   onClick={handleReset}
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
@@ -816,6 +957,7 @@ export default function App() {
               getDayProgress={getDayProgress}
               isDayComplete={isDayComplete}
               startDay={startDay}
+              setView={setView}
             />
           )}
           {view === 'day-detail' && (
@@ -844,6 +986,13 @@ export default function App() {
               key="day-complete"
               selectedDay={selectedDay}
               finishDay={finishDay}
+            />
+          )}
+          {view === 'history' && (
+            <HistoryView 
+              key="history"
+              progress={progress}
+              setView={setView}
             />
           )}
         </AnimatePresence>
