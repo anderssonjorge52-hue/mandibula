@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -608,13 +608,24 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
 );
 
 export default function App() {
+  console.log('App rendering...');
   // --- State ---
   const [view, setView] = useState<View>('landing');
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
   const [progress, setProgress] = useState<Progress>(() => {
-    const saved = localStorage.getItem('mandibula-progress');
-    return saved ? JSON.parse(saved) : { completedExercises: [], currentDay: 1 };
+    try {
+      const saved = localStorage.getItem('mandibula-progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.completedExercises)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading progress:', e);
+    }
+    return { completedExercises: [], currentDay: 1 };
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
@@ -635,9 +646,10 @@ export default function App() {
   }, [progress]);
 
   // --- Helpers ---
-  const currentDayData = useMemo(() => 
-    PROGRAM_DATA.find(d => d.id === progress.currentDay) || PROGRAM_DATA[0], 
-  [progress.currentDay]);
+  const currentDayData = useMemo(() => {
+    const day = PROGRAM_DATA.find(d => d.id === progress.currentDay);
+    return day || PROGRAM_DATA[0] || { id: 1, title: '', objective: '', exercises: [] };
+  }, [progress.currentDay]);
 
   const overallProgress = useMemo(() => {
     const totalExercises = PROGRAM_DATA.reduce((acc, day) => acc + day.exercises.length, 0);
