@@ -22,14 +22,9 @@ import {
   RotateCw,
   Pause,
   RefreshCw,
-  History,
-  LogOut,
-  LogIn
+  History
 } from 'lucide-react';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
-import { auth, db, signInWithGoogle, logout, handleFirestoreError } from './firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 // --- Types ---
 type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history';
@@ -56,63 +51,6 @@ const ProgressBar = ({ progress }: { progress: number }) => (
       transition={{ duration: 0.8, ease: "easeOut" }}
     />
   </div>
-);
-
-const LoginView = ({ onLogin, onGuest, isLoading, error }: { onLogin: () => void; onGuest: () => void; isLoading: boolean; error: string | null }) => (
-  <motion.div 
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="min-h-screen flex flex-col items-center justify-center p-6 text-center"
-  >
-    <div className="w-20 h-20 bg-indigo-600 text-white rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-indigo-200">
-      <Activity size={40} />
-    </div>
-    <h1 className="text-3xl font-bold text-slate-900 mb-3">Mandíbula Leve</h1>
-    <p className="text-slate-600 mb-10 max-w-xs">
-      Sincronize seu progresso e acesse seus exercícios de qualquer lugar.
-    </p>
-    
-    {error && (
-      <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-2xl text-sm border border-rose-100 flex items-center gap-3 max-w-xs">
-        <Info size={18} className="flex-shrink-0" />
-        <p className="text-left">{error}</p>
-      </div>
-    )}
-
-    <div className="flex flex-col gap-3 w-full max-w-xs">
-      <button 
-        onClick={onLogin}
-        disabled={isLoading}
-        className={`w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center justify-center gap-3 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-      >
-        {isLoading ? (
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          >
-            <RefreshCw size={20} />
-          </motion.div>
-        ) : (
-          <>
-            <LogIn size={20} />
-            Entrar com Google
-          </>
-        )}
-      </button>
-
-      <button 
-        onClick={onGuest}
-        disabled={isLoading}
-        className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-all"
-      >
-        Continuar sem conta
-      </button>
-    </div>
-    
-    <p className="mt-8 text-[10px] text-slate-400 max-w-[200px] leading-relaxed">
-      Ao entrar, seus dados serão salvos na nuvem. No modo visitante, os dados ficam apenas neste navegador.
-    </p>
-  </motion.div>
 );
 
 // --- Sub-Components ---
@@ -189,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <h3 className="text-lg font-bold text-slate-800 px-2">Seu Plano de 7 Dias</h3>
       <div className="grid gap-4">
         {PROGRAM_DATA.map((day) => {
-          const isLocked = day.id > progress.currentDay;
+          const isLocked = false; // All days unlocked
           const isCompleted = isDayComplete(day.id);
           const isActive = day.id === progress.currentDay;
 
@@ -859,11 +797,6 @@ class ErrorBoundary extends React.Component<any, any> {
 export default function App() {
   console.log('App rendering...');
   // --- State ---
-  const [user, setUser] = useState<User | null>(null);
-  const [isGuest, setIsGuest] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isLoginLoading, setIsLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [view, setView] = useState<View>('landing');
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
@@ -888,27 +821,11 @@ export default function App() {
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  const syncProgressToFirestore = async (newProgress: Progress) => {
-    if (!auth.currentUser) return;
-    try {
-      const userDoc = doc(db, 'users', auth.currentUser.uid);
-      await setDoc(userDoc, {
-        ...newProgress,
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (e) {
-      handleFirestoreError(e, 'write', `users/${auth.currentUser.uid}`);
-    }
-  };
-
   const handleReset = async () => {
     if (confirm('Deseja realmente resetar todo o seu progresso?')) {
       const initialProgress = { completedExercises: [], completionHistory: [], currentDay: 1 };
       setProgress(initialProgress);
       localStorage.setItem('mandibula-progress', JSON.stringify(initialProgress));
-      await syncProgressToFirestore(initialProgress);
       setView('landing');
       setIsMenuOpen(false);
       window.scrollTo(0, 0);
@@ -917,53 +834,12 @@ export default function App() {
 
   // --- Effects ---
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setIsAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const userDoc = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDoc, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Progress;
-        setProgress(prev => {
-          // Only update if remote is different to avoid loops
-          if (JSON.stringify(prev) !== JSON.stringify({
-            completedExercises: data.completedExercises,
-            completionHistory: data.completionHistory,
-            currentDay: data.currentDay
-          })) {
-            return {
-              completedExercises: data.completedExercises || [],
-              completionHistory: data.completionHistory || [],
-              currentDay: data.currentDay || 1
-            };
-          }
-          return prev;
-        });
-      }
-    }, (error) => {
-      handleFirestoreError(error, 'get', `users/${user.uid}`);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  useEffect(() => {
     try {
       localStorage.setItem('mandibula-progress', JSON.stringify(progress));
-      if (user) {
-        syncProgressToFirestore(progress);
-      }
     } catch (e) {
       console.error('Error saving progress:', e);
     }
-  }, [progress, user]);
+  }, [progress]);
 
   // --- Helpers ---
   const currentDayData = useMemo(() => {
@@ -1050,51 +926,6 @@ export default function App() {
         window.scrollTo(0, 0);
       };
 
-  const handleLogin = async () => {
-    setIsLoginLoading(true);
-    setLoginError(null);
-    try {
-      await signInWithGoogle();
-    } catch (e: any) {
-      console.error('Login error:', e);
-      if (e.code === 'auth/popup-blocked') {
-        setLoginError('O popup de login foi bloqueado. Por favor, permita popups para este site.');
-      } else if (e.code === 'auth/cancelled-popup-request') {
-        // User closed the popup, no need to show error
-      } else {
-        setLoginError('Ocorreu um erro ao tentar entrar. Tente novamente.');
-      }
-    } finally {
-      setIsLoginLoading(false);
-    }
-  };
-
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        >
-          <RefreshCw className="text-indigo-600 w-8 h-8" />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user && !isGuest) {
-    return (
-      <ErrorBoundary>
-        <LoginView 
-          onLogin={handleLogin} 
-          onGuest={() => setIsGuest(true)}
-          isLoading={isLoginLoading} 
-          error={loginError} 
-        />
-      </ErrorBoundary>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 relative overflow-x-hidden">
@@ -1167,24 +998,6 @@ export default function App() {
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
                   <RotateCw size={20} /> Resetar Progresso
-                </button>
-                <button 
-                  onClick={() => {
-                    logout();
-                    setIsGuest(false);
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-left flex items-center gap-4 text-slate-600 font-medium"
-                >
-                  {user ? (
-                    <>
-                      <LogOut size={20} /> Sair da Conta
-                    </>
-                  ) : (
-                    <>
-                      <LogIn size={20} /> Entrar com Conta
-                    </>
-                  )}
                 </button>
               </div>
 
