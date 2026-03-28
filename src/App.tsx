@@ -450,43 +450,52 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
 
           {/* Timer Overlay */}
           <div className="mt-6 flex flex-col items-center z-10">
-            <motion.div 
-              key={timeLeft}
-              initial={{ opacity: 0.5, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className={`text-5xl font-black tracking-tighter mb-4 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse' : ''}`}
+            <div 
+              className={`text-5xl font-black tracking-tighter mb-4 transition-all duration-300 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse scale-110' : 'text-white'}`}
             >
               {formatTime(timeLeft)}
-            </motion.div>
+            </div>
             
-            <div className="flex gap-3">
-              {!isTimerRunning && timeLeft === 60 ? (
-                <button 
-                  onClick={() => setIsTimerRunning(true)}
-                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-                >
-                  <Play size={16} fill="currentColor" />
-                  Iniciar
-                </button>
-              ) : (
-                <>
-                  <button 
-                    onClick={() => setIsTimerRunning(!isTimerRunning)}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+            <div className="flex gap-3 h-12 items-center">
+              <AnimatePresence mode="wait">
+                {!isTimerRunning && timeLeft === 60 ? (
+                  <motion.button 
+                    key="start-btn"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    onClick={() => setIsTimerRunning(true)}
+                    className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
                   >
-                    {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsTimerRunning(false);
-                      setTimeLeft(60);
-                    }}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    <Play size={16} fill="currentColor" />
+                    Iniciar
+                  </motion.button>
+                ) : (
+                  <motion.div 
+                    key="control-btns"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex gap-3"
                   >
-                    <RefreshCw size={20} />
-                  </button>
-                </>
-              )}
+                    <button 
+                      onClick={() => setIsTimerRunning(!isTimerRunning)}
+                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    >
+                      {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsTimerRunning(false);
+                        setTimeLeft(60);
+                      }}
+                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    >
+                      <RefreshCw size={20} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
