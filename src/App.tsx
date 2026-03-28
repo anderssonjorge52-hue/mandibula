@@ -20,6 +20,8 @@ import {
   X,
   Activity,
   RotateCw,
+  Pause,
+  RefreshCw,
   History,
   LogOut,
   LogIn,
@@ -374,11 +376,43 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
   nextExercise
 }) => {
   const exercise = selectedDay?.exercises[selectedExerciseIndex];
-  
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  // Reset timer when exercise changes
+  useEffect(() => {
+    setTimeLeft(60);
+    setIsTimerRunning(false);
+  }, [selectedExerciseIndex, selectedDay?.id]);
+
+  useEffect(() => {
+    let interval: any;
+    if (isTimerRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsTimerRunning(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsTimerRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timeLeft]);
+
   if (!exercise) return null;
 
   const isDone = progress.completedExercises.includes(exercise.id);
   
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -400,7 +434,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
       </div>
 
       <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl border border-slate-100">
-        <div className="bg-indigo-600 p-12 flex flex-col items-center justify-center text-white relative overflow-hidden">
+        <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden">
           {/* Decorative background circle */}
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
@@ -411,8 +445,50 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             animate={{ scale: 1, opacity: 1 }}
             className="text-white z-10"
           >
-            <exercise.icon size={100} strokeWidth={1.5} />
+            <exercise.icon size={80} strokeWidth={1.5} />
           </motion.div>
+
+          {/* Timer Overlay */}
+          <div className="mt-6 flex flex-col items-center z-10">
+            <motion.div 
+              key={timeLeft}
+              initial={{ opacity: 0.5, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`text-5xl font-black tracking-tighter mb-4 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse' : ''}`}
+            >
+              {formatTime(timeLeft)}
+            </motion.div>
+            
+            <div className="flex gap-3">
+              {!isTimerRunning && timeLeft === 60 ? (
+                <button 
+                  onClick={() => setIsTimerRunning(true)}
+                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                >
+                  <Play size={16} fill="currentColor" />
+                  Iniciar
+                </button>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => setIsTimerRunning(!isTimerRunning)}
+                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                  >
+                    {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsTimerRunning(false);
+                      setTimeLeft(60);
+                    }}
+                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                  >
+                    <RefreshCw size={20} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
         
         <div className="p-8 space-y-6">
