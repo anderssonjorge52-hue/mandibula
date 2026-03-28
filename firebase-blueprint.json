@@ -9,13 +9,6 @@
           "type": "integer",
           "description": "The current day the user is on."
         },
-        "completedDays": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          },
-          "description": "List of days the user has fully completed."
-        },
         "completedExercises": {
           "type": "array",
           "items": {
@@ -23,13 +16,24 @@
           },
           "description": "List of specific exercise IDs completed (e.g., 'day1-ex1')."
         },
+        "completionHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "exerciseId": { "type": "string" },
+              "completedAt": { "type": "string", "format": "date-time" }
+            }
+          },
+          "description": "History of exercise completions."
+        },
         "updatedAt": {
           "type": "string",
           "format": "date-time",
           "description": "The last time the progress was updated."
         }
       },
-      "required": ["currentDay", "completedDays", "completedExercises"]
+      "required": ["currentDay", "completionHistory", "completedExercises"]
     }
   },
   "firestore": {

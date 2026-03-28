@@ -849,9 +849,12 @@ class ErrorBoundary extends React.Component<any, any> {
             </button>
           </div>
           {state.error && (
-            <pre className="mt-8 p-4 bg-slate-100 rounded-lg text-[10px] text-slate-400 text-left overflow-auto max-w-full">
-              {state.error.toString()}
-            </pre>
+            <div className="mt-8 p-4 bg-slate-100 rounded-lg text-xs text-slate-600 text-left overflow-auto max-w-full border border-slate-200">
+              <p className="font-bold mb-2">Detalhes do erro:</p>
+              <pre className="whitespace-pre-wrap">
+                {state.error.message || state.error.toString()}
+              </pre>
+            </div>
           )}
         </div>
       );
@@ -951,6 +954,22 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Connection Test
+  useEffect(() => {
+    if (isAuthReady && user) {
+      const testConnection = async () => {
+        try {
+          await getDocFromServer(doc(db, 'test', 'connection'));
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('the client is offline')) {
+            console.error("Please check your Firebase configuration.");
+          }
+        }
+      };
+      testConnection();
+    }
+  }, [isAuthReady, user]);
 
   // --- Firestore Sync Effects ---
   useEffect(() => {

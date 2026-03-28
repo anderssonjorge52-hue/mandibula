@@ -9,8 +9,8 @@ service cloud.firestore {
     // Document ID: current
     // Fields:
     //   - currentDay: number (required) - The current day the user is on.
-    //   - completedDays: list (required) - List of days the user has fully completed.
     //   - completedExercises: list (required) - List of specific exercise IDs completed.
+    //   - completionHistory: list (required) - History of exercise completions.
     //   - updatedAt: timestamp (optional) - The last time the progress was updated.
     //
     // ===============================================================
@@ -37,12 +37,12 @@ service cloud.firestore {
 
     // Domain Validators
     function isValidProgress(data) {
-      return hasRequiredFields(['currentDay', 'completedDays', 'completedExercises']) &&
-             hasOnlyAllowedFields(['currentDay', 'completedDays', 'completedExercises', 'updatedAt']) &&
+      return hasRequiredFields(['currentDay', 'completedExercises', 'completionHistory']) &&
+             hasOnlyAllowedFields(['currentDay', 'completedExercises', 'completionHistory', 'updatedAt']) &&
              data.currentDay is number &&
-             data.completedDays is list &&
              data.completedExercises is list &&
-             (data.updatedAt == null || data.updatedAt is timestamp);
+             data.completionHistory is list &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
     // ===============================================================
