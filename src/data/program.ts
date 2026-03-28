@@ -484,20 +484,36 @@ export const PROGRAM_DATA: Day[] = [
       },
       {
         id: "d7-e2",
-        name: "Postura de Sono Ideal",
-        objective: "Evitar tensão noturna e bruxismo.",
+        name: "Postura de Sono e ATM",
+        objective: "Evitar a compressão da mandíbula durante a noite.",
         instructions: [
-          "Dê preferência para dormir de barriga para cima ou de lado.",
-          "Se dormir de lado, use um travesseiro entre os joelhos para alinhar o quadril.",
-          "O travesseiro da cabeça deve preencher o espaço entre o ombro e a orelha.",
-          "Evite dormir de bruços, pois isso rotaciona o pescoço e tensiona a ATM.",
-          "Verifique se seus dentes não estão encostados antes de adormecer."
+          "Dormir de barriga para cima é a posição mais neutra para a ATM.",
+          "Se dormir de lado, use um travesseiro alto o suficiente para manter o pescoço reto.",
+          "Coloque um travesseiro entre os joelhos para evitar a rotação da coluna.",
+          "NUNCA durma de bruços: isso força a mandíbula para o lado por horas.",
+          "Antes de apagar a luz, verifique se há espaço entre os dentes.",
+          "Se sentir tensão, coloque a ponta da língua no céu da boca."
         ],
         duration: "2 min",
         icon: Moon
       },
       {
         id: "d7-e3",
+        name: "Relaxamento Pré-Sono",
+        objective: "Desprogramar a tensão muscular antes de dormir.",
+        instructions: [
+          "Sente-se na beira da cama com os pés no chão.",
+          "Faça movimentos circulares suaves com os ombros (5x para trás).",
+          "Abra a boca suavemente e balance a mandíbula de um lado para o outro.",
+          "Massageie as têmporas com movimentos circulares leves.",
+          "Respire pelo nariz, sentindo o abdômen expandir, por 10 ciclos.",
+          "Deite-se mantendo a sensação de peso e relaxamento."
+        ],
+        duration: "3 min",
+        icon: Bed
+      },
+      {
+        id: "d7-e4",
         name: "Alinhamento de Coluna",
         objective: "Corrigir a postura global que afeta a mandíbula.",
         instructions: [
@@ -510,7 +526,7 @@ export const PROGRAM_DATA: Day[] = [
         icon: Target
       },
       {
-        id: "d7-e4",
+        id: "d7-e5",
         name: "Abertura de Ombros",
         objective: "Reduzir a tensão peitoral que puxa a cabeça para frente.",
         instructions: [
@@ -523,7 +539,21 @@ export const PROGRAM_DATA: Day[] = [
         icon: Maximize
       },
       {
-        id: "d7-e5",
+        id: "d7-e6",
+        name: "Descompressão Cervical",
+        objective: "Aliviar a base do crânio e pescoço.",
+        instructions: [
+          "Deitado, coloque uma toalha enrolada sob a nuca (não sob a cabeça).",
+          "Deixe o peso da cabeça tracionar suavemente o pescoço.",
+          "Mantenha a boca entreaberta e a língua relaxada.",
+          "Sinta o alongamento passivo por 2 minutos.",
+          "Isso ajuda a alinhar a coluna cervical com a ATM."
+        ],
+        duration: "2 min",
+        icon: Wind
+      },
+      {
+        id: "d7-e7",
         name: "Lembrete de Repouso",
         objective: "Fixar a posição correta.",
         instructions: [
@@ -536,7 +566,7 @@ export const PROGRAM_DATA: Day[] = [
         icon: ShieldCheck
       },
       {
-        id: "d7-e6",
+        id: "d7-e8",
         name: "O Sorriso Interno",
         objective: "Manter o estado de relaxamento mental.",
         instructions: [
@@ -549,7 +579,7 @@ export const PROGRAM_DATA: Day[] = [
         icon: Smile
       },
       {
-        id: "d7-e7",
+        id: "d7-e9",
         name: "Compromisso com Você",
         objective: "Manter os resultados.",
         instructions: [

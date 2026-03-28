@@ -981,7 +981,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
         </div>
         <div className="w-px h-4 bg-slate-200" />
         <div className="flex flex-col items-center">
-          <span className="text-slate-900 font-bold">35</span>
+          <span className="text-slate-900 font-bold">{totalExercises}</span>
           <span className="text-[10px] uppercase tracking-widest font-bold">Exercícios</span>
         </div>
         <div className="w-px h-4 bg-slate-200" />
@@ -1067,7 +1067,14 @@ class ErrorBoundary extends React.Component<any, any> {
             <div className="mt-8 p-4 bg-slate-100 rounded-2xl text-[10px] text-slate-600 text-left overflow-auto max-w-full border border-slate-200 font-mono">
               <p className="font-bold mb-2 text-rose-600 uppercase tracking-wider">Detalhes do erro:</p>
               <pre className="whitespace-pre-wrap break-all">
-                {state.error.message || state.error.toString()}
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(state.error.message);
+                    return JSON.stringify(parsed, null, 2);
+                  } catch (e) {
+                    return state.error.message || state.error.toString();
+                  }
+                })()}
               </pre>
               {state.error.stack && (
                 <pre className="mt-4 text-slate-400 border-t border-slate-200 pt-4">
@@ -1184,6 +1191,7 @@ export default function App() {
   // --- Auth State ---
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authTimeout, setAuthTimeout] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -1212,13 +1220,30 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  const totalExercises = useMemo(() => {
+    return PROGRAM_DATA.reduce((acc, day) => acc + day.exercises.length, 0);
+  }, []);
+
   // --- Auth Effects ---
   useEffect(() => {
+    console.log('Initializing Auth listener...');
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('Auth state changed:', currentUser ? `Logged in as ${currentUser.email}` : 'Logged out');
       setUser(currentUser);
       setIsAuthReady(true);
     });
-    return () => unsubscribe();
+
+    const timeout = setTimeout(() => {
+      if (!isAuthReady) {
+        console.warn('Auth initialization taking longer than expected...');
+        setAuthTimeout(true);
+      }
+    }, 8000); // 8 seconds timeout
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Connection Test
@@ -1308,11 +1333,21 @@ export default function App() {
   const handleLogin = async () => {
     setIsLoginLoading(true);
     setLoginError(null);
+    console.log('Starting Google login...');
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log('Login successful for user:', result.user.uid, result.user.email);
     } catch (error: any) {
-      console.error('Login error:', error);
-      setLoginError('Falha ao entrar com Google. Tente novamente.');
+      console.error('Login error details:', error);
+      let message = 'Falha ao entrar com Google. Tente novamente.';
+      if (error.code === 'auth/popup-blocked') {
+        message = 'O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.';
+      } else if (error.code === 'auth/unauthorized-domain') {
+        message = 'Este domínio não está autorizado para login. Verifique as configurações do Firebase.';
+      } else if (error.message) {
+        message = `Erro: ${error.message}`;
+      }
+      setLoginError(message);
     } finally {
       setIsLoginLoading(false);
     }
@@ -1447,8 +1482,23 @@ export default function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6" />
+        <p className="text-slate-600 font-medium animate-pulse">Iniciando Mandíbula Leve...</p>
+        {authTimeout && (
+          <div className="mt-8 max-w-xs">
+            <p className="text-slate-400 text-xs leading-relaxed">
+              A inicialização está demorando mais que o esperado. 
+              Isso pode ser devido a uma conexão lenta ou problemas com o Firebase.
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 text-indigo-600 text-xs font-bold uppercase tracking-widest hover:underline"
+            >
+              Recarregar Página
+            </button>
+          </div>
+        )}
       </div>
     );
   }
