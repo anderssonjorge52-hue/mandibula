@@ -26,6 +26,12 @@ service cloud.firestore {
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "anderssonjorge52@gmail.com" && request.auth.token.email_verified == true));
+    }
     
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
@@ -38,17 +44,25 @@ service cloud.firestore {
     // Domain Validators
     function isValidProgress(data) {
       return data.currentDay is number &&
+             data.currentDay >= 1 &&
              data.completedExercises is list &&
-             data.completionHistory is list;
+             data.completedExercises.size() <= 1000 &&
+             data.completionHistory is list &&
+             data.completionHistory.size() <= 1000 &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
 
-    match /users/{userId}/progress/{progressId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      
+      match /progress/{progressId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) && isValidProgress(request.resource.data);
+      }
     }
 
     // Default deny

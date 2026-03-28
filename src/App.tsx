@@ -93,8 +93,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  // Don't throw here to avoid crashing async cycles, 
-  // but we might want to surface this to the UI via state if needed.
+  throw new Error(JSON.stringify(errInfo));
 }
 
 interface CompletionRecord {
