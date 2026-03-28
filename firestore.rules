@@ -37,12 +37,9 @@ service cloud.firestore {
 
     // Domain Validators
     function isValidProgress(data) {
-      return hasRequiredFields(['currentDay', 'completedExercises', 'completionHistory']) &&
-             hasOnlyAllowedFields(['currentDay', 'completedExercises', 'completionHistory', 'updatedAt']) &&
-             data.currentDay is number &&
+      return data.currentDay is number &&
              data.completedExercises is list &&
-             data.completionHistory is list &&
-             (!('updatedAt' in data) || data.updatedAt is timestamp);
+             data.completionHistory is list;
     }
 
     // ===============================================================
@@ -51,9 +48,7 @@ service cloud.firestore {
 
     match /users/{userId}/progress/{progressId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidProgress(request.resource.data);
-      allow update: if isOwner(userId) && isValidProgress(request.resource.data);
-      allow delete: if isOwner(userId);
+      allow write: if isOwner(userId);
     }
 
     // Default deny

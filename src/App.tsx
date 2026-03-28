@@ -93,7 +93,8 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // Don't throw here to avoid crashing async cycles, 
+  // but we might want to surface this to the UI via state if needed.
 }
 
 interface CompletionRecord {
@@ -589,8 +590,14 @@ const DayCompleteView: React.FC<DayCompleteViewProps> = ({
 const HistoryView: React.FC<{ progress: Progress; setView: (v: View) => void }> = ({ progress, setView }) => {
   // Group history by day
   const historyByDay = useMemo(() => {
+    console.log('Calculating historyByDay for history length:', progress.completionHistory?.length);
     const groups: { [key: string]: { day: Day; exercises: { ex: Exercise; completedAt: string }[] } } = {};
     
+    if (!Array.isArray(progress.completionHistory)) {
+      console.warn('completionHistory is not an array:', progress.completionHistory);
+      return [];
+    }
+
     progress.completionHistory.forEach(record => {
       // Find which day this exercise belongs to
       let foundDay: Day | undefined;
@@ -811,11 +818,12 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 
   static getDerivedStateFromError(error: Error) {
+    console.error('ErrorBoundary caught an error:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
+    console.error('ErrorBoundary details:', error, errorInfo);
   }
 
   render() {
@@ -828,13 +836,13 @@ class ErrorBoundary extends React.Component<any, any> {
             <X size={32} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Ops! Algo deu errado.</h1>
-          <p className="text-slate-600 mb-8 max-w-xs">
+          <p className="text-slate-600 mb-8 max-w-xs leading-relaxed">
             Ocorreu um erro ao carregar o aplicativo. Tente recarregar a página ou resetar seu progresso.
           </p>
           <div className="flex flex-col gap-3 w-full max-w-xs">
             <button 
               onClick={() => window.location.reload()}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg"
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-transform"
             >
               Recarregar Página
             </button>
@@ -843,17 +851,22 @@ class ErrorBoundary extends React.Component<any, any> {
                 localStorage.removeItem('mandibula-progress');
                 window.location.reload();
               }}
-              className="w-full bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold"
+              className="w-full bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold active:scale-95 transition-transform"
             >
               Resetar Dados (Limpar Erro)
             </button>
           </div>
           {state.error && (
-            <div className="mt-8 p-4 bg-slate-100 rounded-lg text-xs text-slate-600 text-left overflow-auto max-w-full border border-slate-200">
-              <p className="font-bold mb-2">Detalhes do erro:</p>
-              <pre className="whitespace-pre-wrap">
+            <div className="mt-8 p-4 bg-slate-100 rounded-2xl text-[10px] text-slate-600 text-left overflow-auto max-w-full border border-slate-200 font-mono">
+              <p className="font-bold mb-2 text-rose-600 uppercase tracking-wider">Detalhes do erro:</p>
+              <pre className="whitespace-pre-wrap break-all">
                 {state.error.message || state.error.toString()}
               </pre>
+              {state.error.stack && (
+                <pre className="mt-4 text-slate-400 border-t border-slate-200 pt-4">
+                  {state.error.stack}
+                </pre>
+              )}
             </div>
           )}
         </div>
@@ -913,6 +926,51 @@ const LoginView: React.FC<{ onLogin: () => void; isLoading: boolean; error: stri
   </motion.div>
 );
 
+const ConfirmDialog: React.FC<{ 
+  isOpen: boolean; 
+  title: string; 
+  message: string; 
+  onConfirm: () => void; 
+  onCancel: () => void; 
+}> = ({ isOpen, title, message, onConfirm, onCancel }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"
+          onClick={onCancel}
+        />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-[2rem] p-8 z-[110] shadow-2xl"
+        >
+          <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
+          <p className="text-slate-500 mb-8 leading-relaxed">{message}</p>
+          <div className="flex gap-3">
+            <button 
+              onClick={onCancel}
+              className="flex-1 py-4 rounded-2xl font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={onConfirm}
+              className="flex-1 py-4 rounded-2xl font-bold text-white bg-rose-500 shadow-lg shadow-rose-100 active:scale-95 transition-transform"
+            >
+              Confirmar
+            </button>
+          </div>
+        </motion.div>
+      </>
+    )}
+  </AnimatePresence>
+);
+
 export default function App() {
   console.log('App rendering...');
   // --- State ---
@@ -945,6 +1003,7 @@ export default function App() {
     return defaultProgress;
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // --- Auth Effects ---
   useEffect(() => {
@@ -1063,14 +1122,17 @@ export default function App() {
   };
   
   const handleReset = async () => {
-    if (confirm('Deseja realmente resetar todo o seu progresso?')) {
-      const initialProgress = { completedExercises: [], completionHistory: [], currentDay: 1 };
-      setProgress(initialProgress);
-      localStorage.setItem('mandibula-progress', JSON.stringify(initialProgress));
-      setView('landing');
-      setIsMenuOpen(false);
-      window.scrollTo(0, 0);
-    }
+    setIsConfirmOpen(true);
+  };
+
+  const confirmReset = () => {
+    const initialProgress = { completedExercises: [], completionHistory: [], currentDay: 1 };
+    setProgress(initialProgress);
+    localStorage.setItem('mandibula-progress', JSON.stringify(initialProgress));
+    setView('landing');
+    setIsMenuOpen(false);
+    setIsConfirmOpen(false);
+    window.scrollTo(0, 0);
   };
 
   // --- Effects ---
@@ -1084,8 +1146,17 @@ export default function App() {
 
   // --- Helpers ---
   const currentDayData = useMemo(() => {
+    console.log('Calculating currentDayData for day:', progress.currentDay);
+    if (!PROGRAM_DATA || PROGRAM_DATA.length === 0) {
+      console.error('PROGRAM_DATA is empty or undefined!');
+      return { id: 1, title: 'Erro', objective: '', exercises: [] };
+    }
     const day = PROGRAM_DATA.find(d => d.id === progress.currentDay);
-    return day || PROGRAM_DATA[0] || { id: 1, title: '', objective: '', exercises: [] };
+    if (!day) {
+      console.warn(`Day ${progress.currentDay} not found, falling back to day 1`);
+      return PROGRAM_DATA[0];
+    }
+    return day;
   }, [progress.currentDay]);
 
   const overallProgress = useMemo(() => {
@@ -1280,7 +1351,7 @@ export default function App() {
           {view === 'landing' && (
             <LandingView 
               key="landing"
-              hasProgress={progress.completedExercises.length > 0 || progress.currentDay > 1}
+              hasProgress={(progress.completedExercises?.length || 0) > 0 || (progress.currentDay || 1) > 1}
               onStart={() => setView('dashboard')}
               onReset={handleReset}
             />
@@ -1345,6 +1416,14 @@ export default function App() {
           </p>
         </footer>
       )}
+
+      <ConfirmDialog 
+        isOpen={isConfirmOpen}
+        title="Resetar Progresso"
+        message="Deseja realmente resetar todo o seu progresso? Esta ação não pode ser desfeita."
+        onConfirm={confirmReset}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </div>
     </ErrorBoundary>
   );
