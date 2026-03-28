@@ -153,33 +153,30 @@ const Dashboard: React.FC<DashboardProps> = ({
     className="space-y-8 pb-12"
   >
     {/* Header Section */}
-    <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 relative overflow-hidden">
-      <div className="absolute top-0 right-0 p-4">
+    <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-6">
         <button 
           onClick={() => setView('history')}
-          className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-indigo-600 transition-colors"
+          className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-indigo-600 transition-all hover:bg-indigo-50"
           title="Ver Histórico"
         >
           <History size={20} />
         </button>
       </div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-sm font-semibold text-indigo-600 uppercase tracking-wider mb-1">Bem-vindo de volta</h2>
-          <h1 className="text-3xl font-bold text-slate-900">Mandíbula Leve</h1>
-        </div>
-        <div className="bg-indigo-50 p-3 rounded-2xl">
-          <Activity className="text-indigo-600 w-6 h-6" />
+          <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-[0.2em] mb-2">Bem-vindo de volta</h2>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Mandíbula<span className="text-indigo-600">.</span></h1>
         </div>
       </div>
       
-      <p className="text-slate-600 mb-8 leading-relaxed">
+      <p className="text-slate-500 mb-10 leading-relaxed font-medium">
         Vamos aliviar essa tensão juntos. Seu programa de 7 dias está progredindo muito bem.
       </p>
 
-      <div className="space-y-4">
-        <div className="flex justify-between text-sm font-medium">
-          <span className="text-slate-500">Progresso Geral</span>
+      <div className="space-y-5 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+        <div className="flex justify-between text-sm font-bold">
+          <span className="text-slate-400 uppercase tracking-widest text-[10px]">Progresso Geral</span>
           <span className="text-indigo-600">{overallProgress}%</span>
         </div>
         <ProgressBar progress={overallProgress} />
@@ -187,7 +184,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <button 
         onClick={() => startDay(currentDayData)}
-        className="w-full mt-8 bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        className="w-full mt-8 bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-indigo-700"
       >
         <Play fill="currentColor" size={20} />
         Começar Dia {progress.currentDay}
@@ -195,11 +192,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     </section>
 
     {/* Days List */}
-    <section className="space-y-4">
-      <h3 className="text-lg font-bold text-slate-800 px-2">Seu Plano de 7 Dias</h3>
+    <section className="space-y-6">
+      <div className="flex items-center justify-between px-2">
+        <h3 className="text-xl font-black text-slate-900 tracking-tight">Seu Plano</h3>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">7 Dias</span>
+      </div>
       <div className="grid gap-4">
         {PROGRAM_DATA.map((day) => {
-          const isLocked = false; // All days unlocked
+          const isLocked = day.id > progress.currentDay;
           const isCompleted = isDayComplete(day.id);
           const isActive = day.id === progress.currentDay;
 
@@ -209,33 +209,37 @@ const Dashboard: React.FC<DashboardProps> = ({
               disabled={isLocked}
               onClick={() => startDay(day)}
               className={`
-                w-full text-left p-5 rounded-2xl border transition-all flex items-center gap-4
-                ${isActive ? 'bg-indigo-50 border-indigo-200 shadow-md' : 'bg-white border-slate-100'}
-                ${isLocked ? 'opacity-50 grayscale' : 'active:scale-[0.98]'}
+                w-full text-left p-6 rounded-[2rem] border transition-all flex items-center gap-5
+                ${isActive ? 'bg-indigo-50 border-indigo-200 shadow-md ring-4 ring-indigo-50/50' : 'bg-white border-slate-100'}
+                ${isLocked ? 'opacity-40 grayscale pointer-events-none' : 'active:scale-[0.98] hover:border-indigo-100'}
               `}
             >
               <div className={`
-                w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0
-                ${isCompleted ? 'bg-emerald-100 text-emerald-600' : isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}
+                w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm
+                ${isCompleted ? 'bg-emerald-500 text-white' : isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}
               `}>
-                {isCompleted ? <CheckCircle2 size={24} /> : <span className="font-bold text-lg">{day.id}</span>}
+                {isCompleted ? <CheckCircle2 size={28} /> : <span className="font-black text-xl">{day.id}</span>}
               </div>
               
               <div className="flex-1 min-w-0">
-                <h4 className={`font-bold truncate ${isActive ? 'text-indigo-900' : 'text-slate-800'}`}>
+                <h4 className={`font-bold text-lg truncate ${isActive ? 'text-indigo-900' : 'text-slate-800'}`}>
                   {day.title}
                 </h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-400" style={{ width: `${getDayProgress(day.id)}%` }} />
+                <div className="flex items-center gap-3 mt-2">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${getDayProgress(day.id)}%` }}
+                      className={`h-full ${isCompleted ? 'bg-emerald-400' : 'bg-indigo-400'}`} 
+                    />
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
                     {getDayProgress(day.id)}%
                   </span>
                 </div>
               </div>
 
-              {!isLocked && <ChevronRight className="text-slate-300" size={20} />}
+              {!isLocked && <ChevronRight className={isActive ? "text-indigo-300" : "text-slate-200"} size={24} />}
             </button>
           );
         })}
@@ -256,80 +260,101 @@ const DayDetail: React.FC<DayDetailProps> = ({
   progress, 
   setView, 
   openExercise 
-}) => (
-  <motion.div 
-    initial={{ opacity: 0, x: 20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: -20 }}
-    className="space-y-6 pb-12"
-  >
-    <button 
-      onClick={() => setView('dashboard')}
-      className="flex items-center gap-2 text-slate-500 font-medium active:translate-x-[-4px] transition-transform"
-    >
-      <ChevronLeft size={20} />
-      Voltar ao Dashboard
-    </button>
+}) => {
+  const firstUncompletedIndex = selectedDay?.exercises.findIndex(ex => !progress.completedExercises.includes(ex.id));
+  const isAllDone = firstUncompletedIndex === -1;
 
-    <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-      <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest">Dia {selectedDay?.id}</span>
-      <h1 className="text-2xl font-bold text-slate-900 mt-1">{selectedDay?.title}</h1>
-      <p className="text-slate-600 mt-4 leading-relaxed">
-        {selectedDay?.objective}
-      </p>
-      
-      <div className="flex items-center gap-4 mt-6 pt-6 border-t border-slate-50">
-        <div className="flex items-center gap-1 text-slate-400 text-sm">
-          <Clock size={16} />
-          <span>~5 min</span>
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-8 pb-12"
+    >
+      <button 
+        onClick={() => setView('dashboard')}
+        className="flex items-center gap-2 text-slate-400 font-bold text-sm hover:text-indigo-600 transition-colors"
+      >
+        <ChevronLeft size={20} />
+        Voltar ao Dashboard
+      </button>
+
+      <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl -z-10" />
+        
+        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em]">Dia {selectedDay?.id}</span>
+        <h1 className="text-3xl font-black text-slate-900 mt-2 leading-tight">{selectedDay?.title}</h1>
+        <p className="text-slate-500 mt-4 leading-relaxed font-medium">
+          {selectedDay?.objective}
+        </p>
+        
+        <div className="flex items-center gap-6 mt-8 pt-8 border-t border-slate-50">
+          <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
+            <Clock size={16} className="text-indigo-400" />
+            <span>~5 min</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
+            <Activity size={16} className="text-indigo-400" />
+            <span>{selectedDay?.exercises.length} exercícios</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-slate-400 text-sm">
-          <Info size={16} />
-          <span>{selectedDay?.exercises.length} exercícios</span>
+
+        {!isAllDone && (
+          <button 
+            onClick={() => openExercise(firstUncompletedIndex !== undefined ? firstUncompletedIndex : 0)}
+            className="w-full mt-8 bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-indigo-700"
+          >
+            <Play fill="currentColor" size={20} />
+            {firstUncompletedIndex === 0 ? 'Começar Exercícios' : 'Continuar de onde parou'}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-4">Lista de Exercícios</h3>
+        <div className="space-y-3">
+          {selectedDay?.exercises.map((ex, idx) => {
+            const isDone = progress.completedExercises.includes(ex.id);
+            return (
+              <button
+                key={ex.id}
+                onClick={() => openExercise(idx)}
+                className={`
+                  w-full text-left p-5 rounded-3xl border transition-all flex items-center gap-4
+                  ${isDone ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-100 shadow-sm'}
+                  active:scale-[0.98]
+                `}
+              >
+                <div className={`
+                  w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0
+                  ${isDone ? 'bg-emerald-500 text-white' : 'bg-indigo-50 text-indigo-600'}
+                `}>
+                  {isDone ? <CheckCircle2 size={24} /> : <ex.icon size={24} strokeWidth={1.5} />}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h4 className={`font-bold truncate ${isDone ? 'text-emerald-900 opacity-50' : 'text-slate-800'}`}>
+                    {ex.name}
+                  </h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    {ex.duration}
+                  </p>
+                </div>
+
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center
+                  ${isDone ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-300'}
+                `}>
+                  <ChevronRight size={18} />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
-
-    <div className="space-y-3">
-      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Exercícios de Hoje</h3>
-      {selectedDay?.exercises.map((ex, idx) => {
-        const isDone = progress.completedExercises.includes(ex.id);
-        return (
-          <button
-            key={ex.id}
-            onClick={() => openExercise(idx)}
-            className={`
-              w-full text-left p-4 rounded-2xl border flex items-center gap-4 transition-all
-              ${isDone ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-100 shadow-sm active:scale-[0.98]'}
-            `}
-          >
-            <div className={`
-              w-10 h-10 rounded-xl flex items-center justify-center
-              ${isDone ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}
-            `}>
-              <ex.icon size={20} />
-            </div>
-            <div className="flex-1">
-              <h4 className={`font-bold text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-                {ex.name}
-              </h4>
-              <p className="text-xs text-slate-400 mt-0.5">{ex.duration}</p>
-            </div>
-            {isDone ? <CheckCircle2 className="text-emerald-500" size={20} /> : <Circle className="text-slate-200" size={20} />}
-          </button>
-        );
-      })}
-    </div>
-
-    <button 
-      onClick={() => openExercise(0)}
-      className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
-    >
-      Começar Exercícios
-      <ArrowRight size={20} />
-    </button>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 interface ExerciseViewProps {
   selectedDay: Day | null;
@@ -350,14 +375,28 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
   toggleExerciseComplete,
   nextExercise
 }) => {
-  const [timeLeft, setTimeLeft] = useState(60);
+  const exercise = selectedDay?.exercises[selectedExerciseIndex];
+  
+  // Parse duration to seconds
+  const initialSeconds = useMemo(() => {
+    if (!exercise) return 60;
+    const match = exercise.duration.match(/(\d+)\s*(min|seg)/);
+    if (match) {
+      const value = parseInt(match[1]);
+      const unit = match[2];
+      return unit === 'min' ? value * 60 : value;
+    }
+    return 60;
+  }, [exercise]);
+
+  const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   // Reset timer when exercise changes
   useEffect(() => {
-    setTimeLeft(60);
+    setTimeLeft(initialSeconds);
     setIsTimerRunning(false);
-  }, [selectedExerciseIndex, selectedDay]);
+  }, [selectedExerciseIndex, selectedDay, initialSeconds]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -371,11 +410,10 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
     return () => clearInterval(interval);
   }, [isTimerRunning, timeLeft]);
 
-  const exercise = selectedDay?.exercises[selectedExerciseIndex];
   if (!exercise) return null;
 
   const isDone = progress.completedExercises.includes(exercise.id);
-
+  
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -384,44 +422,58 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
 
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="space-y-6 pb-12"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-8 pb-12"
     >
       <div className="flex items-center justify-between">
         <button 
           onClick={() => setView('day-detail')}
-          className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400"
+          className="p-2 -ml-2 text-slate-400 hover:text-indigo-600 transition-colors"
         >
-          <X size={20} />
+          <ChevronLeft size={24} />
         </button>
-        <div className="text-sm font-bold text-slate-400">
-          {selectedExerciseIndex + 1} de {selectedDay?.exercises.length}
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+          Exercício {selectedExerciseIndex + 1} de {selectedDay?.exercises.length}
         </div>
         <div className="w-10" /> {/* Spacer */}
       </div>
 
       <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl border border-slate-100">
-        <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative">
-          <div className="text-white">
+        <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden">
+          {/* Decorative background circle */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
+          
+          <motion.div 
+            key={exercise.id}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-white z-10"
+          >
             <exercise.icon size={80} strokeWidth={1.5} />
-          </div>
+          </motion.div>
 
           {/* Timer Overlay */}
-          <div className="mt-6 flex flex-col items-center">
-            <div className="text-4xl font-black tracking-tighter mb-4">
+          <div className="mt-6 flex flex-col items-center z-10">
+            <motion.div 
+              key={timeLeft}
+              initial={{ opacity: 0.5, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`text-5xl font-black tracking-tighter mb-4 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse' : ''}`}
+            >
               {formatTime(timeLeft)}
-            </div>
+            </motion.div>
             
             <div className="flex gap-3">
-              {!isTimerRunning && timeLeft === 60 ? (
+              {!isTimerRunning && timeLeft === initialSeconds ? (
                 <button 
                   onClick={() => setIsTimerRunning(true)}
-                  className="bg-white text-indigo-600 px-6 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
                 >
                   <Play size={16} fill="currentColor" />
-                  Iniciar Exercício
+                  Iniciar
                 </button>
               ) : (
                 <>
@@ -434,7 +486,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
                   <button 
                     onClick={() => {
                       setIsTimerRunning(false);
-                      setTimeLeft(60);
+                      setTimeLeft(initialSeconds);
                     }}
                     className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
                   >
@@ -448,7 +500,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
         
         <div className="p-8 space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{exercise.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 leading-tight">{exercise.name}</h1>
             <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-full text-xs font-bold">
               <Clock size={14} />
               <span>{exercise.duration}</span>
@@ -495,7 +547,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             toggleExerciseComplete(exercise.id);
             // Pequeno delay para o usuário ver a animação de conclusão
             setTimeout(() => {
-              nextExercise();
+              nextExercise(false);
             }, 600);
           }}
           className={`
@@ -522,13 +574,13 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
         <button 
           disabled={selectedExerciseIndex === 0}
           onClick={() => setSelectedExerciseIndex((prev: number) => prev - 1)}
-          className="text-slate-400 font-bold text-sm disabled:opacity-0 flex items-center gap-1"
+          className="text-slate-400 font-bold text-sm disabled:opacity-0 flex items-center gap-1 hover:text-slate-600 transition-colors"
         >
           <ChevronLeft size={16} /> Anterior
         </button>
         <button 
-          onClick={nextExercise}
-          className="text-indigo-600 font-bold text-sm flex items-center gap-1"
+          onClick={() => nextExercise(true)}
+          className="text-indigo-600 font-bold text-sm flex items-center gap-1 hover:text-indigo-800 transition-colors"
         >
           Pular <ChevronRight size={16} />
         </button>
@@ -903,43 +955,51 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="min-h-[80vh] flex flex-col items-center justify-center text-center px-4"
+    className="min-h-[80vh] flex flex-col items-center justify-center text-center px-4 relative"
   >
+    {/* Decorative elements */}
+    <motion.div 
+      animate={{ 
+        scale: [1, 1.1, 1],
+        opacity: [0.3, 0.5, 0.3]
+      }}
+      transition={{ duration: 8, repeat: Infinity }}
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-100 rounded-full blur-3xl -z-10"
+    />
+
     <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
-      className="mb-8 relative"
+      initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
+      animate={{ scale: 1, opacity: 1, rotate: 3 }}
+      transition={{ delay: 0.2, duration: 0.8, type: "spring" }}
+      className="mb-10 relative"
     >
-      <div className="w-32 h-32 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
-        <Activity size={64} strokeWidth={1.5} />
+      <div className="w-36 h-36 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-200">
+        <Activity size={72} strokeWidth={1.5} />
       </div>
       <motion.div 
-        animate={{ rotate: -12 }}
-        className="absolute -top-4 -right-4 w-12 h-12 bg-emerald-400 rounded-2xl flex items-center justify-center text-white shadow-lg"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 1, type: "spring" }}
+        className="absolute -top-4 -right-4 w-14 h-14 bg-emerald-400 rounded-2xl flex items-center justify-center text-white shadow-lg border-4 border-white"
       >
-        <Trophy size={24} />
+        <Trophy size={28} />
       </motion.div>
     </motion.div>
 
-    <motion.h1 
+    <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.4, duration: 0.6 }}
-      className="text-6xl font-black text-slate-900 tracking-tighter mb-4 leading-[0.9]"
+      className="space-y-4 mb-12"
     >
-      Mandíbula<br/>
-      <span className="text-indigo-600">Leve.</span>
-    </motion.h1>
-
-    <motion.p 
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.6 }}
-      className="text-slate-500 max-w-[280px] mx-auto mb-12 text-lg leading-snug font-medium"
-    >
-      Seu guia diário para o alívio da tensão e bem-estar facial.
-    </motion.p>
+      <h1 className="text-7xl font-black text-slate-900 tracking-tighter leading-[0.85]">
+        Mandíbula<br/>
+        <span className="text-indigo-600">Leve.</span>
+      </h1>
+      <p className="text-slate-500 max-w-[280px] mx-auto text-lg leading-snug font-medium">
+        Seu guia diário para o alívio da tensão e bem-estar facial.
+      </p>
+    </motion.div>
 
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -949,7 +1009,7 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
     >
       <button 
         onClick={onStart}
-        className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 active:scale-95 transition-transform flex items-center justify-center gap-3"
+        className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-indigo-700"
       >
         {hasProgress ? 'Continuar Jornada' : 'Começar Jornada'}
         <ArrowRight size={20} />
@@ -958,26 +1018,21 @@ const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress
       {hasProgress && (
         <button 
           onClick={onReset}
-          className="text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-rose-500 transition-colors"
+          className="text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-rose-500 transition-colors py-2"
         >
           Resetar Progresso
         </button>
       )}
       
-      <div className="flex items-center justify-center gap-6 text-slate-400">
+      <div className="flex items-center justify-center gap-8 text-slate-400 pt-4">
         <div className="flex flex-col items-center">
-          <span className="text-slate-900 font-bold">7</span>
+          <span className="text-slate-900 font-black text-xl">7</span>
           <span className="text-[10px] uppercase tracking-widest font-bold">Dias</span>
         </div>
-        <div className="w-px h-4 bg-slate-200" />
+        <div className="w-px h-8 bg-slate-200" />
         <div className="flex flex-col items-center">
-          <span className="text-slate-900 font-bold">{totalExercises}</span>
+          <span className="text-slate-900 font-black text-xl">{totalExercises}</span>
           <span className="text-[10px] uppercase tracking-widest font-bold">Exercícios</span>
-        </div>
-        <div className="w-px h-4 bg-slate-200" />
-        <div className="flex flex-col items-center">
-          <span className="text-slate-900 font-bold">100%</span>
-          <span className="text-[10px] uppercase tracking-widest font-bold">Natural</span>
         </div>
       </div>
     </motion.div>
@@ -1277,8 +1332,6 @@ export default function App() {
               completedAt: new Date().toISOString()
             });
           } else {
-            // Optional: remove from history if unchecked? 
-            // Usually history should be immutable records, but for this app simplicity:
             newHistory = newHistory.filter(h => h.exerciseId !== exerciseId);
           }
 
@@ -1286,14 +1339,18 @@ export default function App() {
         });
       };
     
-      const nextExercise = () => {
+      const nextExercise = (isSkipping = false) => {
         if (!selectedDay) return;
-        if (selectedExerciseIndex < selectedDay.exercises.length - 1) {
+        
+        const isLastExercise = selectedExerciseIndex >= selectedDay.exercises.length - 1;
+        
+        if (!isLastExercise) {
           setSelectedExerciseIndex(prev => prev + 1);
         } else {
           // Check if all exercises in day are done
+          const currentExerciseId = selectedDay.exercises[selectedExerciseIndex].id;
           const allDone = selectedDay.exercises.every(e => 
-            progress.completedExercises.includes(e.id) || e.id === selectedDay.exercises[selectedExerciseIndex].id
+            progress.completedExercises.includes(e.id) || (!isSkipping && e.id === currentExerciseId)
           );
           
           if (allDone) {
