@@ -361,9 +361,9 @@ interface ExerciseViewProps {
   selectedExerciseIndex: number;
   progress: Progress;
   setView: (v: View) => void;
-  setSelectedExerciseIndex: (i: any) => void;
+  setSelectedExerciseIndex: React.Dispatch<React.SetStateAction<number>>;
   toggleExerciseComplete: (id: string) => void;
-  nextExercise: () => void;
+  nextExercise: (isSkipping?: boolean) => void;
 }
 
 const ExerciseView: React.FC<ExerciseViewProps> = ({
@@ -396,13 +396,19 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
   useEffect(() => {
     setTimeLeft(initialSeconds);
     setIsTimerRunning(false);
-  }, [selectedExerciseIndex, selectedDay, initialSeconds]);
+  }, [selectedExerciseIndex, selectedDay?.id, initialSeconds]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (isTimerRunning && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsTimerRunning(false);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
     } else if (timeLeft === 0) {
       setIsTimerRunning(false);
@@ -530,7 +536,21 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
         </div>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-3">
+        <button 
+          onClick={() => {
+            if (selectedExerciseIndex > 0) {
+              setSelectedExerciseIndex(prev => prev - 1);
+            } else {
+              setView('day-detail');
+            }
+          }}
+          className="w-14 h-14 bg-white border border-slate-200 text-slate-400 rounded-2xl flex items-center justify-center active:scale-95 transition-transform hover:text-indigo-600 hover:border-indigo-100"
+          title="Anterior"
+        >
+          <ChevronLeft size={24} />
+        </button>
+
         <motion.button 
           layout
           initial={false}
@@ -540,7 +560,8 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             backgroundColor: "#10b981" // emerald-500
           } : {
             scale: 1,
-            rotate: 0
+            rotate: 0,
+            backgroundColor: "#4f46e5" // indigo-600
           }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
@@ -551,8 +572,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             }, 600);
           }}
           className={`
-            flex-1 py-5 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-colors
-            ${isDone ? 'bg-emerald-500 text-white shadow-emerald-100' : 'bg-indigo-600 text-white shadow-indigo-100'}
+            flex-1 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-colors text-white
           `}
         >
           <AnimatePresence mode="wait">
@@ -564,10 +584,18 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
               className="flex items-center gap-2"
             >
               {isDone ? 'Concluído!' : 'Concluir Exercício'}
-              <CheckCircle2 size={20} />
+              {isDone ? <CheckCircle2 size={20} /> : <Play size={20} fill="currentColor" />}
             </motion.div>
           </AnimatePresence>
         </motion.button>
+
+        <button 
+          onClick={() => nextExercise(true)}
+          className="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center active:scale-95 transition-transform hover:bg-slate-200 hover:text-slate-600"
+          title="Pular"
+        >
+          <ChevronRight size={24} />
+        </button>
       </div>
       
       <div className="flex justify-between px-4">
@@ -1348,7 +1376,12 @@ export default function App() {
           setSelectedExerciseIndex(prev => prev + 1);
         } else {
           // Check if all exercises in day are done
-          const currentExerciseId = selectedDay.exercises[selectedExerciseIndex].id;
+          const currentExerciseId = selectedDay.exercises[selectedExerciseIndex]?.id;
+          if (!currentExerciseId) {
+            setView('day-detail');
+            return;
+          }
+
           const allDone = selectedDay.exercises.every(e => 
             progress.completedExercises.includes(e.id) || (!isSkipping && e.id === currentExerciseId)
           );
