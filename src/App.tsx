@@ -44,13 +44,7 @@ import {
 } from 'recharts';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
 import { 
-  auth, 
   db, 
-  googleProvider, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  User,
   doc,
   setDoc,
   getDoc,
@@ -93,17 +87,12 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
+      userId: 'local-user',
+      email: 'local@example.com',
+      emailVerified: true,
+      isAnonymous: false,
+      tenantId: null,
+      providerInfo: []
     },
     operationType,
     path
@@ -1092,55 +1081,6 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-const LoginView: React.FC<{ onLogin: () => void; isLoading: boolean; error: string | null }> = ({ onLogin, isLoading, error }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50"
-  >
-    <div className="mb-8 relative">
-      <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
-        <Activity size={48} strokeWidth={1.5} />
-      </div>
-    </div>
-
-    <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">
-      Mandíbula<span className="text-indigo-600">Leve.</span>
-    </h1>
-    <p className="text-slate-500 max-w-[280px] mx-auto mb-12 text-lg leading-snug font-medium">
-      Entre para salvar seu progresso e continuar sua jornada de alívio.
-    </p>
-
-    {error && (
-      <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-2xl text-sm font-medium border border-rose-100 w-full max-w-xs">
-        {error}
-      </div>
-    )}
-
-    <button 
-      onClick={onLogin}
-      disabled={isLoading}
-      className="w-full max-w-xs bg-white border border-slate-200 text-slate-700 py-4 rounded-2xl font-bold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-slate-50 disabled:opacity-50"
-    >
-      {isLoading ? (
-        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.39-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-        </svg>
-      )}
-      Entrar com Google
-    </button>
-
-    <p className="mt-8 text-[11px] text-slate-400 max-w-[200px]">
-      Ao entrar, você concorda em salvar seus dados de progresso de forma segura.
-    </p>
-  </motion.div>
-);
-
 const ConfirmDialog: React.FC<{ 
   isOpen: boolean; 
   title: string; 
@@ -1190,8 +1130,8 @@ export default function App() {
   console.log('App rendering...');
   // --- State ---
   // --- Auth State ---
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [user, setUser] = useState<any>({ uid: 'local-user', email: 'local@example.com' });
+  const [isAuthReady, setIsAuthReady] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -1227,24 +1167,8 @@ export default function App() {
 
   // --- Auth Effects ---
   useEffect(() => {
-    console.log('Initializing Auth listener...');
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('Auth state changed:', currentUser ? `Logged in as ${currentUser.email}` : 'Logged out');
-      setUser(currentUser);
-      setIsAuthReady(true);
-    });
-
-    const timeout = setTimeout(() => {
-      if (!isAuthReady) {
-        console.warn('Auth initialization taking longer than expected...');
-        setAuthTimeout(true);
-      }
-    }, 8000); // 8 seconds timeout
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timeout);
-    };
+    // Auth removed as per user request
+    setIsAuthReady(true);
   }, []);
 
   // Connection Test
@@ -1263,107 +1187,16 @@ export default function App() {
     }
   }, [isAuthReady, user]);
 
-  // --- Firestore Sync Effects ---
+  // --- Firestore Sync Effects (Disabled) ---
   useEffect(() => {
-    if (!user) return;
-
-    const progressDocRef = doc(db, 'users', user.uid, 'progress', 'current');
-    
-    // Initial fetch from server to ensure we have the latest
-    const fetchInitialProgress = async () => {
-      try {
-        const docSnap = await getDocFromServer(progressDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setProgress({
-            completedExercises: data.completedExercises || [],
-            completionHistory: data.completionHistory || [],
-            currentDay: data.currentDay || 1
-          });
-        }
-      } catch (error) {
-        // Only log, don't crash. Might be first time user.
-        console.log('No initial progress found on server or error fetching:', error);
-      }
-    };
-    fetchInitialProgress();
-
-    // Real-time listener
-    const unsubscribe = onSnapshot(progressDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        // Only update if different to avoid loops
-        setProgress(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(data)) {
-            return {
-              completedExercises: data.completedExercises || [],
-              completionHistory: data.completionHistory || [],
-              currentDay: data.currentDay || 1
-            };
-          }
-          return prev;
-        });
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/progress/current`);
-    });
-
-    return () => unsubscribe();
+    // Sync disabled as per user request to remove login
   }, [user]);
 
-  // Sync local changes to Firestore
+  // Sync local changes to Firestore (Disabled)
   useEffect(() => {
-    if (!user) return;
-
-    const syncToFirestore = async () => {
-      try {
-        const progressDocRef = doc(db, 'users', user.uid, 'progress', 'current');
-        await setDoc(progressDocRef, {
-          ...progress,
-          updatedAt: new Date()
-        }, { merge: true });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/progress/current`);
-      }
-    };
-
-    const timeoutId = setTimeout(syncToFirestore, 1000); // Debounce sync
-    return () => clearTimeout(timeoutId);
+    // Sync disabled as per user request to remove login
   }, [progress, user]);
 
-  const handleLogin = async () => {
-    setIsLoginLoading(true);
-    setLoginError(null);
-    console.log('Starting Google login...');
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log('Login successful for user:', result.user.uid, result.user.email);
-    } catch (error: any) {
-      console.error('Login error details:', error);
-      let message = 'Falha ao entrar com Google. Tente novamente.';
-      if (error.code === 'auth/popup-blocked') {
-        message = 'O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.';
-      } else if (error.code === 'auth/unauthorized-domain') {
-        message = 'Este domínio não está autorizado para login. Verifique as configurações do Firebase.';
-      } else if (error.message) {
-        message = `Erro: ${error.message}`;
-      }
-      setLoginError(message);
-    } finally {
-      setIsLoginLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setView('landing');
-      setIsMenuOpen(false);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-  
   const handleReset = async () => {
     setIsConfirmOpen(true);
   };
@@ -1481,35 +1314,8 @@ export default function App() {
         window.scrollTo(0, 0);
       };
 
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6" />
-        <p className="text-slate-600 font-medium animate-pulse">Iniciando Mandíbula Leve...</p>
-        {authTimeout && (
-          <div className="mt-8 max-w-xs">
-            <p className="text-slate-400 text-xs leading-relaxed">
-              A inicialização está demorando mais que o esperado. 
-              Isso pode ser devido a uma conexão lenta ou problemas com o Firebase.
-            </p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="mt-4 text-indigo-600 text-xs font-bold uppercase tracking-widest hover:underline"
-            >
-              Recarregar Página
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <ErrorBoundary>
-        <LoginView onLogin={handleLogin} isLoading={isLoginLoading} error={loginError} />
-      </ErrorBoundary>
-    );
+  if (false) {
+    // Auth checks removed
   }
 
   return (
@@ -1590,12 +1396,6 @@ export default function App() {
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
                   <RotateCw size={20} /> Resetar Progresso
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="w-full text-left flex items-center gap-4 text-slate-400 font-medium hover:text-rose-500 transition-colors"
-                >
-                  <LogOut size={20} /> Sair da Conta
                 </button>
               </div>
 
