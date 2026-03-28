@@ -45,9 +45,14 @@ import {
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
 import { 
   db, 
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  type User,
   doc,
   setDoc,
-  getDoc,
   onSnapshot,
   getDocFromServer
 } from './firebase';
@@ -197,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <h3 className="text-xl font-black text-slate-900 tracking-tight">Seu Plano</h3>
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">7 Dias</span>
       </div>
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {PROGRAM_DATA.map((day) => {
           const isLocked = day.id > progress.currentDay;
           const isCompleted = isDayComplete(day.id);
@@ -233,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       className={`h-full ${isCompleted ? 'bg-emerald-400' : 'bg-indigo-400'}`} 
                     />
                   </div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                  <span className={`text-[10px] font-black uppercase tracking-tighter ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {getDayProgress(day.id)}%
                   </span>
                 </div>
@@ -312,7 +317,7 @@ const DayDetail: React.FC<DayDetailProps> = ({
 
       <div className="space-y-4">
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-4">Lista de Exercícios</h3>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {selectedDay?.exercises.map((ex, idx) => {
             const isDone = progress.completedExercises.includes(ex.id);
             return (
@@ -429,83 +434,94 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
       </div>
 
       <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl border border-slate-100">
-        <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden">
-          {/* Decorative background circle */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
-          
-          <div className="text-white z-10">
-            <exercise.icon size={80} strokeWidth={1.5} />
-          </div>
-
-          {/* Timer Overlay */}
-          <div className="mt-6 flex flex-col items-center z-10">
-            <div 
-              className={`text-5xl font-black tracking-tighter mb-4 transition-all duration-300 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse scale-110' : 'text-white'}`}
-            >
-              {formatTime(timeLeft)}
-            </div>
+        <div className="flex flex-col lg:flex-row">
+          <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden lg:w-1/3 lg:min-h-[400px]">
+            {/* Decorative background circle */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
             
-            <div className="flex gap-3 h-12 items-center">
-              {!isTimerRunning && timeLeft === 60 ? (
-                <button 
-                  onClick={() => setIsTimerRunning(true)}
-                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-                >
-                  <Play size={16} fill="currentColor" />
-                  Iniciar
-                </button>
-              ) : (
-                <div className="flex gap-3">
+            <div className="text-white z-10">
+              <exercise.icon size={80} strokeWidth={1.5} />
+            </div>
+
+            {/* Timer Overlay */}
+            <div className="mt-6 flex flex-col items-center z-10">
+              <div 
+                className={`text-5xl font-black tracking-tighter mb-4 transition-all duration-300 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse scale-110' : 'text-white'}`}
+              >
+                {formatTime(timeLeft)}
+              </div>
+              
+              <div className="flex gap-3 h-12 items-center">
+                {!isTimerRunning && timeLeft === 60 ? (
                   <button 
-                    onClick={() => setIsTimerRunning(!isTimerRunning)}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    onClick={() => setIsTimerRunning(true)}
+                    className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
                   >
-                    {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                    <Play size={16} fill="currentColor" />
+                    Iniciar
                   </button>
-                  <button 
-                    onClick={() => {
-                      setIsTimerRunning(false);
-                      setTimeLeft(60);
-                    }}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
-                  >
-                    <RefreshCw size={20} />
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setIsTimerRunning(!isTimerRunning)}
+                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    >
+                      {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsTimerRunning(false);
+                        setTimeLeft(60);
+                      }}
+                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
+                    >
+                      <RefreshCw size={20} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="p-8 space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 leading-tight">{exercise.name}</h1>
-            <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-full text-xs font-bold">
-              <Clock size={14} />
-              <span>{exercise.duration}</span>
+          
+          <div className="p-8 space-y-6 lg:flex-1">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 leading-tight">{exercise.name}</h1>
+              <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-full text-xs font-bold">
+                <Clock size={14} />
+                <span>{exercise.duration}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Como fazer</h3>
-            <ul className="space-y-4">
-              {exercise.instructions.map((step, i) => (
-                <li key={i} className="flex gap-4">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                  <p className="text-slate-600 text-sm leading-relaxed">{step}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Como fazer</h3>
+              <ul className="space-y-4">
+                {exercise.instructions.map((step, i) => (
+                  <li key={i} className="flex gap-4">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <p className="text-slate-600 text-sm leading-relaxed">{step}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          <div className="pt-6 border-t border-slate-50">
-            <p className="text-xs text-slate-400 italic">
-              <span className="font-bold text-indigo-400 not-italic uppercase mr-1">Objetivo:</span>
-              {exercise.objective}
-            </p>
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dicas Rápidas</h3>
+              <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 flex gap-3">
+                <Info size={18} className="text-indigo-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-slate-600 leading-relaxed italic">
+                  {exercise.objective}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <p className="text-[10px] text-slate-400 font-medium leading-tight text-center">
+                ⚠️ Se sentir qualquer dor ou desconforto, pare imediatamente e consulte um profissional de saúde.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -552,6 +568,13 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
           <ChevronRight size={24} />
         </button>
       </div>
+
+      <button 
+        onClick={() => nextExercise(true)}
+        className="w-full py-3 bg-slate-50 text-slate-400 font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+      >
+        Pular este exercício <ChevronRight size={16} />
+      </button>
       
       <div className="flex justify-between px-4">
         <button 
@@ -1258,9 +1281,8 @@ export default function App() {
   console.log('App rendering...');
   // --- State ---
   // --- Auth State ---
-  const [user, setUser] = useState<any>({ uid: 'local-user', email: 'local@example.com' });
-  const [isAuthReady, setIsAuthReady] = useState(true);
-  const [authTimeout, setAuthTimeout] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -1295,9 +1317,34 @@ export default function App() {
 
   // --- Auth Effects ---
   useEffect(() => {
-    // Auth removed as per user request
-    setIsAuthReady(true);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handleLogin = async () => {
+    setIsLoginLoading(true);
+    setLoginError(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setLoginError('Falha ao entrar com Google. Tente novamente.');
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   // Connection Test
   useEffect(() => {
@@ -1315,15 +1362,52 @@ export default function App() {
     }
   }, [isAuthReady, user]);
 
-  // --- Firestore Sync Effects (Disabled) ---
+  // --- Firestore Sync Effects ---
   useEffect(() => {
-    // Sync disabled as per user request to remove login
-  }, [user]);
+    if (!isAuthReady || !user) return;
 
-  // Sync local changes to Firestore (Disabled)
+    const docRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const remoteData = docSnap.data() as Progress;
+        // Merge logic: only update if remote has more progress or different data
+        // For simplicity, we'll trust the remote data if it exists
+        setProgress(prev => {
+          const remoteCompleted = remoteData.completedExercises?.length || 0;
+          const localCompleted = prev.completedExercises?.length || 0;
+          
+          if (remoteCompleted >= localCompleted) {
+            return {
+              completedExercises: remoteData.completedExercises || [],
+              completionHistory: remoteData.completionHistory || [],
+              currentDay: remoteData.currentDay || 1
+            };
+          }
+          return prev;
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthReady, user]);
+
+  // Sync local changes to Firestore
   useEffect(() => {
-    // Sync disabled as per user request to remove login
-  }, [progress, user]);
+    if (!isAuthReady || !user) return;
+
+    const syncToFirestore = async () => {
+      try {
+        await setDoc(doc(db, 'users', user.uid), progress, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+      }
+    };
+
+    const timeoutId = setTimeout(syncToFirestore, 1000); // Debounce sync
+    return () => clearTimeout(timeoutId);
+  }, [progress, user, isAuthReady]);
 
   const handleReset = async () => {
     setIsConfirmOpen(true);
@@ -1508,6 +1592,25 @@ export default function App() {
               </div>
               
               <div className="space-y-6 flex-1">
+                {user ? (
+                  <div className="mb-8 p-4 bg-indigo-50 rounded-2xl flex items-center gap-3">
+                    {user.photoURL && <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">{user.displayName || 'Usuário'}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleLogin}
+                    disabled={isLoginLoading}
+                    className="w-full mb-8 bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    {isLoginLoading ? 'Entrando...' : 'Sincronizar com Google'}
+                    <Play size={16} fill="currentColor" />
+                  </button>
+                )}
+
                 <button 
                   onClick={() => { setView('dashboard'); setIsMenuOpen(false); }}
                   className="w-full text-left flex items-center gap-4 text-slate-600 font-medium hover:text-indigo-600"
@@ -1526,6 +1629,16 @@ export default function App() {
                 >
                   <BarChart2 size={20} /> Estatísticas
                 </button>
+                
+                {user && (
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left flex items-center gap-4 text-slate-600 font-medium hover:text-indigo-600"
+                  >
+                    <LogOut size={20} /> Sair da Conta
+                  </button>
+                )}
+
                 <button 
                   onClick={handleReset}
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
@@ -1545,7 +1658,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="max-w-md mx-auto px-6 pt-8 pb-12">
+      <main className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-6 pt-8 pb-12">
         <AnimatePresence mode="wait">
           {view === 'landing' && (
             <LandingView 
@@ -1615,7 +1728,7 @@ export default function App() {
 
       {/* Footer (only on dashboard) */}
       {view === 'dashboard' && (
-        <footer className="max-w-md mx-auto px-6 pb-12 text-center space-y-4">
+        <footer className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-6 pb-12 text-center space-y-4">
           <div className="h-px bg-slate-200 w-12 mx-auto" />
           <p className="text-xs text-slate-400 leading-relaxed">
             Desenvolvido para seu bem-estar diário.<br />
