@@ -414,12 +414,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="space-y-8 pb-12"
-    >
+    <div className="space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <button 
           onClick={() => setView('day-detail')}
@@ -439,14 +434,9 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
           
-          <motion.div 
-            key={exercise.id}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-white z-10"
-          >
+          <div className="text-white z-10">
             <exercise.icon size={80} strokeWidth={1.5} />
-          </motion.div>
+          </div>
 
           {/* Timer Overlay */}
           <div className="mt-6 flex flex-col items-center z-10">
@@ -457,45 +447,33 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             </div>
             
             <div className="flex gap-3 h-12 items-center">
-              <AnimatePresence mode="wait">
-                {!isTimerRunning && timeLeft === 60 ? (
-                  <motion.button 
-                    key="start-btn"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    onClick={() => setIsTimerRunning(true)}
-                    className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+              {!isTimerRunning && timeLeft === 60 ? (
+                <button 
+                  onClick={() => setIsTimerRunning(true)}
+                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                >
+                  <Play size={16} fill="currentColor" />
+                  Iniciar
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsTimerRunning(!isTimerRunning)}
+                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
                   >
-                    <Play size={16} fill="currentColor" />
-                    Iniciar
-                  </motion.button>
-                ) : (
-                  <motion.div 
-                    key="control-btns"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="flex gap-3"
+                    {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsTimerRunning(false);
+                      setTimeLeft(60);
+                    }}
+                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
                   >
-                    <button 
-                      onClick={() => setIsTimerRunning(!isTimerRunning)}
-                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
-                    >
-                      {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setIsTimerRunning(false);
-                        setTimeLeft(60);
-                      }}
-                      className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
-                    >
-                      <RefreshCw size={20} />
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <RefreshCw size={20} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -547,19 +525,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
           <ChevronLeft size={24} />
         </button>
 
-        <motion.button 
-          layout
-          initial={false}
-          animate={isDone ? { 
-            scale: [1, 1.05, 1],
-            rotate: [0, -1, 1, -1, 0],
-            backgroundColor: "#10b981" // emerald-500
-          } : {
-            scale: 1,
-            rotate: 0,
-            backgroundColor: "#4f46e5" // indigo-600
-          }}
-          whileTap={{ scale: 0.95 }}
+        <button 
           onClick={() => {
             toggleExerciseComplete(exercise.id);
             // Pequeno delay para o usuário ver a animação de conclusão
@@ -569,21 +535,14 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
           }}
           className={`
             flex-1 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-colors text-white
+            ${isDone ? 'bg-emerald-500' : 'bg-indigo-600'}
           `}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={isDone ? 'done' : 'not-done'}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex items-center gap-2"
-            >
-              {isDone ? 'Concluído!' : 'Concluir Exercício'}
-              {isDone ? <CheckCircle2 size={20} /> : <Play size={20} fill="currentColor" />}
-            </motion.div>
-          </AnimatePresence>
-        </motion.button>
+          <div className="flex items-center gap-2">
+            {isDone ? 'Concluído!' : 'Concluir Exercício'}
+            {isDone ? <CheckCircle2 size={20} /> : <Play size={20} fill="currentColor" />}
+          </div>
+        </button>
 
         <button 
           onClick={() => nextExercise(true)}
@@ -609,7 +568,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
           Pular <ChevronRight size={16} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
