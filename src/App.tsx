@@ -714,6 +714,7 @@ interface LandingViewProps {
   onStart: () => void;
   onReset: () => void;
   hasProgress: boolean;
+  totalExercises: number;
 }
 
 const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void }> = ({ progress, setView }) => {
@@ -908,7 +909,7 @@ const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void 
   );
 };
 
-const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress }) => (
+const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress, totalExercises }) => (
   <motion.div 
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
@@ -1617,6 +1618,7 @@ export default function App() {
               hasProgress={(progress.completedExercises?.length || 0) > 0 || (progress.currentDay || 1) > 1}
               onStart={() => setView('dashboard')}
               onReset={handleReset}
+              totalExercises={totalExercises}
             />
           )}
           {view === 'dashboard' && (

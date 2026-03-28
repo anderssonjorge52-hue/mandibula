@@ -12,7 +12,8 @@ import {
   Moon,
   Sun,
   Target,
-  Activity
+  Activity,
+  Bed
 } from 'lucide-react';
 
 export interface Exercise {
