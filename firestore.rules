@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}/progress/current
+    // Document ID: current
+    // Fields:
+    //   - currentDay: number (required) - The current day the user is on.
+    //   - completedDays: list (required) - List of days the user has fully completed.
+    //   - completedExercises: list (required) - List of specific exercise IDs completed.
+    //   - updatedAt: timestamp (optional) - The last time the progress was updated.
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Domain Validators
+    function isValidProgress(data) {
+      return hasRequiredFields(['currentDay', 'completedDays', 'completedExercises']) &&
+             hasOnlyAllowedFields(['currentDay', 'completedDays', 'completedExercises', 'updatedAt']) &&
+             data.currentDay is number &&
+             data.completedDays is list &&
+             data.completedExercises is list &&
+             (data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId}/progress/{progressId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidProgress(request.resource.data);
+      allow update: if isOwner(userId) && isValidProgress(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

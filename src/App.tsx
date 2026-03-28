@@ -22,12 +22,79 @@ import {
   RotateCw,
   Pause,
   RefreshCw,
-  History
+  History,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  User,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  getDocFromServer
+} from './firebase';
 
 // --- Types ---
 type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 interface CompletionRecord {
   exerciseId: string;
@@ -794,9 +861,64 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
+const LoginView: React.FC<{ onLogin: () => void; isLoading: boolean; error: string | null }> = ({ onLogin, isLoading, error }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50"
+  >
+    <div className="mb-8 relative">
+      <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 rotate-3">
+        <Activity size={48} strokeWidth={1.5} />
+      </div>
+    </div>
+
+    <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">
+      Mandíbula<span className="text-indigo-600">Leve.</span>
+    </h1>
+    <p className="text-slate-500 max-w-[280px] mx-auto mb-12 text-lg leading-snug font-medium">
+      Entre para salvar seu progresso e continuar sua jornada de alívio.
+    </p>
+
+    {error && (
+      <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-2xl text-sm font-medium border border-rose-100 w-full max-w-xs">
+        {error}
+      </div>
+    )}
+
+    <button 
+      onClick={onLogin}
+      disabled={isLoading}
+      className="w-full max-w-xs bg-white border border-slate-200 text-slate-700 py-4 rounded-2xl font-bold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-slate-50 disabled:opacity-50"
+    >
+      {isLoading ? (
+        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.39-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+        </svg>
+      )}
+      Entrar com Google
+    </button>
+
+    <p className="mt-8 text-[11px] text-slate-400 max-w-[200px]">
+      Ao entrar, você concorda em salvar seus dados de progresso de forma segura.
+    </p>
+  </motion.div>
+);
+
 export default function App() {
   console.log('App rendering...');
   // --- State ---
+  // --- Auth State ---
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   const [view, setView] = useState<View>('landing');
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
@@ -820,6 +942,106 @@ export default function App() {
     return defaultProgress;
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // --- Auth Effects ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- Firestore Sync Effects ---
+  useEffect(() => {
+    if (!user) return;
+
+    const progressDocRef = doc(db, 'users', user.uid, 'progress', 'current');
+    
+    // Initial fetch from server to ensure we have the latest
+    const fetchInitialProgress = async () => {
+      try {
+        const docSnap = await getDocFromServer(progressDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProgress({
+            completedExercises: data.completedExercises || [],
+            completionHistory: data.completionHistory || [],
+            currentDay: data.currentDay || 1
+          });
+        }
+      } catch (error) {
+        // Only log, don't crash. Might be first time user.
+        console.log('No initial progress found on server or error fetching:', error);
+      }
+    };
+    fetchInitialProgress();
+
+    // Real-time listener
+    const unsubscribe = onSnapshot(progressDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Only update if different to avoid loops
+        setProgress(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(data)) {
+            return {
+              completedExercises: data.completedExercises || [],
+              completionHistory: data.completionHistory || [],
+              currentDay: data.currentDay || 1
+            };
+          }
+          return prev;
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/progress/current`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Sync local changes to Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const syncToFirestore = async () => {
+      try {
+        const progressDocRef = doc(db, 'users', user.uid, 'progress', 'current');
+        await setDoc(progressDocRef, {
+          ...progress,
+          updatedAt: new Date()
+        }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/progress/current`);
+      }
+    };
+
+    const timeoutId = setTimeout(syncToFirestore, 1000); // Debounce sync
+    return () => clearTimeout(timeoutId);
+  }, [progress, user]);
+
+  const handleLogin = async () => {
+    setIsLoginLoading(true);
+    setLoginError(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setLoginError('Falha ao entrar com Google. Tente novamente.');
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setView('landing');
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
   
   const handleReset = async () => {
     if (confirm('Deseja realmente resetar todo o seu progresso?')) {
@@ -926,6 +1148,22 @@ export default function App() {
         window.scrollTo(0, 0);
       };
 
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ErrorBoundary>
+        <LoginView onLogin={handleLogin} isLoading={isLoginLoading} error={loginError} />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 relative overflow-x-hidden">
@@ -998,6 +1236,12 @@ export default function App() {
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
                   <RotateCw size={20} /> Resetar Progresso
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full text-left flex items-center gap-4 text-slate-400 font-medium hover:text-rose-500 transition-colors"
+                >
+                  <LogOut size={20} /> Sair da Conta
                 </button>
               </div>
 

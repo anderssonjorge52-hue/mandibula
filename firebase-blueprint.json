@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Stores the user's progress in the jaw exercise program.",
+      "type": "object",
+      "properties": {
+        "currentDay": {
+          "type": "integer",
+          "description": "The current day the user is on."
+        },
+        "completedDays": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "List of days the user has fully completed."
+        },
+        "completedExercises": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of specific exercise IDs completed (e.g., 'day1-ex1')."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The last time the progress was updated."
+        }
+      },
+      "required": ["currentDay", "completedDays", "completedExercises"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/progress/current": {
+      "schema": "UserProgress",
+      "description": "The current progress for a specific user."
+    }
+  }
+}
