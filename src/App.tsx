@@ -24,8 +24,24 @@ import {
   RefreshCw,
   History,
   LogOut,
-  LogIn
+  LogIn,
+  BarChart2,
+  Flame,
+  TrendingUp,
+  Award
 } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell,
+  PieChart,
+  Pie
+} from 'recharts';
 import { PROGRAM_DATA, Day, Exercise } from './data/program';
 import { 
   auth, 
@@ -43,7 +59,7 @@ import {
 } from './firebase';
 
 // --- Types ---
-type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history';
+type View = 'landing' | 'dashboard' | 'day-detail' | 'exercise' | 'day-complete' | 'history' | 'statistics';
 
 enum OperationType {
   CREATE = 'create',
@@ -280,7 +296,7 @@ const DayDetail: React.FC<DayDetailProps> = ({
         </div>
         <div className="flex items-center gap-1 text-slate-400 text-sm">
           <Info size={16} />
-          <span>5 exercícios</span>
+          <span>{selectedDay?.exercises.length} exercícios</span>
         </div>
       </div>
     </div>
@@ -699,6 +715,198 @@ interface LandingViewProps {
   onReset: () => void;
   hasProgress: boolean;
 }
+
+const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void }> = ({ progress, setView }) => {
+  const stats = useMemo(() => {
+    const history = progress.completionHistory || [];
+    
+    // 1. Overall Progress
+    const totalExercises = PROGRAM_DATA.reduce((acc, day) => acc + day.exercises.length, 0);
+    const completedCount = progress.completedExercises.length;
+    const progressPercent = Math.round((completedCount / totalExercises) * 100);
+
+    // 2. Streak Calculation
+    const dates = history.map(h => new Date(h.completedAt).toDateString());
+    const uniqueDates = Array.from(new Set(dates)).sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+    
+    let streak = 0;
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    
+    if (uniqueDates.length > 0) {
+      const mostRecent = uniqueDates[0];
+      if (mostRecent === today || mostRecent === yesterday) {
+        streak = 1;
+        for (let i = 0; i < uniqueDates.length - 1; i++) {
+          const current = new Date(uniqueDates[i] as string);
+          const next = new Date(uniqueDates[i + 1] as string);
+          const diff = (current.getTime() - next.getTime()) / 86400000;
+          if (diff <= 1.1) { // Allow for some timezone/rounding slack
+            streak++;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Exercise Frequency
+    const exerciseCounts: { [key: string]: number } = {};
+    history.forEach(h => {
+      exerciseCounts[h.exerciseId] = (exerciseCounts[h.exerciseId] || 0) + 1;
+    });
+
+    const exerciseData = Object.entries(exerciseCounts)
+      .map(([id, count]) => {
+        let name = 'Unknown';
+        for (const day of PROGRAM_DATA) {
+          const ex = day.exercises.find(e => e.id === id);
+          if (ex) {
+            name = ex.name;
+            break;
+          }
+        }
+        return { name, count };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // 4. Activity by Day of Week
+    const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const weeklyActivity = daysOfWeek.map(day => ({ day, count: 0 }));
+    
+    history.forEach(h => {
+      const date = new Date(h.completedAt);
+      const dayIndex = date.getDay();
+      weeklyActivity[dayIndex].count++;
+    });
+
+    return {
+      progressPercent,
+      completedCount,
+      totalExercises,
+      streak,
+      exerciseData,
+      weeklyActivity
+    };
+  }, [progress]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 pb-12"
+    >
+      <button 
+        onClick={() => setView('dashboard')}
+        className="flex items-center gap-2 text-slate-500 font-medium active:translate-x-[-4px] transition-transform"
+      >
+        <ChevronLeft size={20} />
+        Voltar ao Dashboard
+      </button>
+
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+          <BarChart2 size={24} />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900">Estatísticas</h1>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-3">
+            <Flame size={24} />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{stats.streak}</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dias Seguidos</div>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-3">
+            <TrendingUp size={24} />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{stats.progressPercent}%</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concluído</div>
+        </div>
+      </div>
+
+      {/* Weekly Activity Chart */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 px-2">Atividade Semanal</h3>
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats.weeklyActivity}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="day" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8' }} 
+              />
+              <Tooltip 
+                cursor={{ fill: '#f8fafc' }}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+              />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {stats.weeklyActivity.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.count > 0 ? '#6366f1' : '#e2e8f0'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top Exercises */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 px-2">Mais Praticados</h3>
+        {stats.exerciseData.length === 0 ? (
+          <div className="text-center py-8 text-slate-400 text-sm italic">
+            Comece a praticar para ver seus dados aqui.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {stats.exerciseData.map((ex, idx) => (
+              <div key={idx} className="space-y-2">
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-slate-700 truncate max-w-[70%]">{ex.name}</span>
+                  <span className="text-indigo-600">{ex.count}x</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(ex.count / stats.exerciseData[0].count) * 100}%` }}
+                    className="bg-indigo-400 h-full rounded-full"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Overall Progress Breakdown */}
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm text-center">
+        <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-100">
+          <Award size={32} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Jornada de Alívio</h3>
+        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+          Você completou {stats.completedCount} de {stats.totalExercises} exercícios no total. 
+          {stats.progressPercent === 100 ? ' Parabéns! Você atingiu o objetivo máximo!' : ' Continue assim para manter sua mandíbula leve.'}
+        </p>
+        <div className="relative h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${stats.progressPercent}%` }}
+            className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full"
+          />
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 const LandingView: React.FC<LandingViewProps> = ({ onStart, onReset, hasProgress }) => (
   <motion.div 
@@ -1321,6 +1529,12 @@ export default function App() {
                   <History size={20} /> Histórico
                 </button>
                 <button 
+                  onClick={() => { setView('statistics'); setIsMenuOpen(false); }}
+                  className="w-full text-left flex items-center gap-4 text-slate-600 font-medium hover:text-indigo-600"
+                >
+                  <BarChart2 size={20} /> Estatísticas
+                </button>
+                <button 
                   onClick={handleReset}
                   className="w-full text-left flex items-center gap-4 text-rose-500 font-medium"
                 >
@@ -1398,6 +1612,13 @@ export default function App() {
           {view === 'history' && (
             <HistoryView 
               key="history"
+              progress={progress}
+              setView={setView}
+            />
+          )}
+          {view === 'statistics' && (
+            <StatisticsView 
+              key="statistics"
               progress={progress}
               setView={setView}
             />

@@ -484,32 +484,46 @@ export const PROGRAM_DATA: Day[] = [
       },
       {
         id: "d7-e2",
-        name: "Postura de Sono",
-        objective: "Evitar tensão noturna.",
+        name: "Postura de Sono Ideal",
+        objective: "Evitar tensão noturna e bruxismo.",
         instructions: [
-          "Ao deitar, verifique se a mandíbula está solta.",
-          "Use um travesseiro que suporte bem o pescoço.",
-          "Evite dormir de bruços se isso te causa dor.",
-          "Faça 3 respirações profundas antes de dormir."
+          "Dê preferência para dormir de barriga para cima ou de lado.",
+          "Se dormir de lado, use um travesseiro entre os joelhos para alinhar o quadril.",
+          "O travesseiro da cabeça deve preencher o espaço entre o ombro e a orelha.",
+          "Evite dormir de bruços, pois isso rotaciona o pescoço e tensiona a ATM.",
+          "Verifique se seus dentes não estão encostados antes de adormecer."
         ],
-        duration: "1 min",
+        duration: "2 min",
         icon: Moon
       },
       {
         id: "d7-e3",
-        name: "O Sorriso Interno",
-        objective: "Manter o estado de relaxamento mental.",
+        name: "Alinhamento de Coluna",
+        objective: "Corrigir a postura global que afeta a mandíbula.",
         instructions: [
-          "Imagine um sorriso começando nos seus olhos.",
-          "Deixe ele descer para as bochechas e mandíbula.",
-          "Sinta a gratidão pelo progresso feito.",
-          "Mantenha essa sensação."
+          "Encoste as costas em uma parede (calcanhares, glúteos e ombros).",
+          "Tente encostar a nuca na parede sem levantar o queixo.",
+          "Mantenha a mandíbula relaxada e os ombros para baixo.",
+          "Respire profundamente mantendo o alinhamento por 1 minuto."
         ],
         duration: "1 min",
-        icon: Smile
+        icon: Target
       },
       {
         id: "d7-e4",
+        name: "Abertura de Ombros",
+        objective: "Reduzir a tensão peitoral que puxa a cabeça para frente.",
+        instructions: [
+          "Entrelace as mãos atrás das costas.",
+          "Estique os braços e abra o peito, olhando levemente para cima.",
+          "Não force o pescoço, foque na abertura dos ombros.",
+          "Mantenha por 30 segundos, relaxe e repita."
+        ],
+        duration: "1 min",
+        icon: Maximize
+      },
+      {
+        id: "d7-e5",
         name: "Lembrete de Repouso",
         objective: "Fixar a posição correta.",
         instructions: [
@@ -522,7 +536,20 @@ export const PROGRAM_DATA: Day[] = [
         icon: ShieldCheck
       },
       {
-        id: "d7-e5",
+        id: "d7-e6",
+        name: "O Sorriso Interno",
+        objective: "Manter o estado de relaxamento mental.",
+        instructions: [
+          "Imagine um sorriso começando nos seus olhos.",
+          "Deixe ele descer para as bochechas e mandíbula.",
+          "Sinta a gratidão pelo progresso feito.",
+          "Mantenha essa sensação."
+        ],
+        duration: "1 min",
+        icon: Smile
+      },
+      {
+        id: "d7-e7",
         name: "Compromisso com Você",
         objective: "Manter os resultados.",
         instructions: [
