@@ -20,8 +20,6 @@ import {
   X,
   Activity,
   RotateCw,
-  Pause,
-  RefreshCw,
   History,
   LogOut,
   LogIn,
@@ -377,55 +375,10 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
 }) => {
   const exercise = selectedDay?.exercises[selectedExerciseIndex];
   
-  // Parse duration to seconds
-  const initialSeconds = useMemo(() => {
-    if (!exercise) return 60;
-    const match = exercise.duration.match(/(\d+)\s*(min|seg)/);
-    if (match) {
-      const value = parseInt(match[1]);
-      const unit = match[2];
-      return unit === 'min' ? value * 60 : value;
-    }
-    return 60;
-  }, [exercise]);
-
-  const [timeLeft, setTimeLeft] = useState(initialSeconds);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-
-  // Reset timer when exercise changes
-  useEffect(() => {
-    setTimeLeft(initialSeconds);
-    setIsTimerRunning(false);
-  }, [selectedExerciseIndex, selectedDay?.id, initialSeconds]);
-
-  useEffect(() => {
-    let interval: any;
-    if (isTimerRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsTimerRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsTimerRunning(false);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timeLeft]);
-
   if (!exercise) return null;
 
   const isDone = progress.completedExercises.includes(exercise.id);
   
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -447,7 +400,7 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
       </div>
 
       <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl border border-slate-100">
-        <div className="bg-indigo-600 p-8 flex flex-col items-center justify-center text-white relative overflow-hidden">
+        <div className="bg-indigo-600 p-12 flex flex-col items-center justify-center text-white relative overflow-hidden">
           {/* Decorative background circle */}
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
@@ -458,50 +411,8 @@ const ExerciseView: React.FC<ExerciseViewProps> = ({
             animate={{ scale: 1, opacity: 1 }}
             className="text-white z-10"
           >
-            <exercise.icon size={80} strokeWidth={1.5} />
+            <exercise.icon size={100} strokeWidth={1.5} />
           </motion.div>
-
-          {/* Timer Overlay */}
-          <div className="mt-6 flex flex-col items-center z-10">
-            <motion.div 
-              key={timeLeft}
-              initial={{ opacity: 0.5, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className={`text-5xl font-black tracking-tighter mb-4 ${timeLeft < 10 && timeLeft > 0 ? 'text-rose-300 animate-pulse' : ''}`}
-            >
-              {formatTime(timeLeft)}
-            </motion.div>
-            
-            <div className="flex gap-3">
-              {!isTimerRunning && timeLeft === initialSeconds ? (
-                <button 
-                  onClick={() => setIsTimerRunning(true)}
-                  className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-                >
-                  <Play size={16} fill="currentColor" />
-                  Iniciar
-                </button>
-              ) : (
-                <>
-                  <button 
-                    onClick={() => setIsTimerRunning(!isTimerRunning)}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
-                  >
-                    {isTimerRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsTimerRunning(false);
-                      setTimeLeft(initialSeconds);
-                    }}
-                    className="bg-white/20 backdrop-blur-md text-white p-3 rounded-full hover:bg-white/30 transition-colors"
-                  >
-                    <RefreshCw size={20} />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
         </div>
         
         <div className="p-8 space-y-6">
@@ -851,13 +762,71 @@ const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void 
       weeklyActivity[dayIndex].count++;
     });
 
+    // 5. Daily Completion Rate (Exercises completed vs Program Day Total)
+    // We'll calculate how many exercises were completed on each of the last 7 days
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toDateString();
+    }).reverse();
+
+    const dailyCompletionRate = last7Days.map(dateStr => {
+      const dayHistory = history.filter(h => new Date(h.completedAt).toDateString() === dateStr);
+      const count = dayHistory.length;
+      // Heuristic: Average exercises per day is ~5.5. We'll show percentage relative to a "full day" (5 exercises)
+      const rate = Math.min(Math.round((count / 5) * 100), 100);
+      const label = new Date(dateStr).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+      return { day: label, rate, count };
+    });
+
+    // 6. Average Session Duration
+    // Define a session as exercises completed within 20 minutes of each other
+    let sessions: { start: number; end: number; count: number }[] = [];
+    const sortedHistory = [...history].sort((a, b) => new Date(a.completedAt).getTime() - new Date(b).getTime());
+
+    if (sortedHistory.length > 0) {
+      let currentSession = {
+        start: new Date(sortedHistory[0].completedAt).getTime(),
+        end: new Date(sortedHistory[0].completedAt).getTime(),
+        count: 1
+      };
+
+      for (let i = 1; i < sortedHistory.length; i++) {
+        const time = new Date(sortedHistory[i].completedAt).getTime();
+        if (time - currentSession.end < 20 * 60 * 1000) { // 20 minutes gap
+          currentSession.end = time;
+          currentSession.count++;
+        } else {
+          sessions.push(currentSession);
+          currentSession = { start: time, end: time, count: 1 };
+        }
+      }
+      sessions.push(currentSession);
+    }
+
+    // Calculate average duration in minutes
+    // We add 1 minute per exercise as a base since 'completedAt' is the end time
+    const totalDurationMs = sessions.reduce((acc, s) => {
+      const duration = s.end - s.start;
+      return acc + duration + (s.count * 60 * 1000);
+    }, 0);
+
+    const avgSessionDuration = sessions.length > 0 
+      ? Math.round((totalDurationMs / sessions.length) / 60000) 
+      : 0;
+
+    const totalTimeMinutes = Math.round(totalDurationMs / 60000);
+
     return {
       progressPercent,
       completedCount,
       totalExercises,
       streak,
       exerciseData,
-      weeklyActivity
+      weeklyActivity,
+      dailyCompletionRate,
+      avgSessionDuration,
+      totalTimeMinutes
     };
   }, [progress]);
 
@@ -893,20 +862,37 @@ const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void 
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dias Seguidos</div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-3">
+            <Clock size={24} />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{stats.avgSessionDuration}m</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Duração Média</div>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
           <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-3">
             <TrendingUp size={24} />
           </div>
           <div className="text-2xl font-black text-slate-900">{stats.progressPercent}%</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concluído</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Concluído</div>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-3">
+            <Activity size={24} />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{stats.totalTimeMinutes}m</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tempo Total</div>
         </div>
       </div>
 
-      {/* Weekly Activity Chart */}
+      {/* Daily Completion Rate Chart */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 px-2">Atividade Semanal</h3>
+        <div className="flex items-center justify-between mb-6 px-2">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Taxa de Conclusão Diária</h3>
+          <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">Últimos 7 dias</span>
+        </div>
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.weeklyActivity}>
+            <BarChart data={stats.dailyCompletionRate}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 
                 dataKey="day" 
@@ -914,13 +900,28 @@ const StatisticsView: React.FC<{ progress: Progress; setView: (v: View) => void 
                 tickLine={false} 
                 tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8' }} 
               />
+              <YAxis 
+                hide 
+                domain={[0, 100]}
+              />
               <Tooltip 
                 cursor={{ fill: '#f8fafc' }}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{payload[0].payload.day}</p>
+                        <p className="text-sm font-black text-indigo-600">{payload[0].value}% concluído</p>
+                        <p className="text-[10px] text-slate-500">{payload[0].payload.count} exercícios</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {stats.weeklyActivity.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.count > 0 ? '#6366f1' : '#e2e8f0'} />
+              <Bar dataKey="rate" radius={[6, 6, 0, 0]}>
+                {stats.dailyCompletionRate.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.rate >= 100 ? '#10b981' : entry.rate > 0 ? '#6366f1' : '#e2e8f0'} />
                 ))}
               </Bar>
             </BarChart>
